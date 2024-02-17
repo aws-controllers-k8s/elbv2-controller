@@ -1,0 +1,29 @@
+{{ $labels := .Values.role.labels }}
+{{ $rbacRules := include "ack-elbv2-controller.rbac-rules" . }}
+{{ if eq .Values.installScope "cluster" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ack-elbv2-controller
+  labels:
+  {{- range $key, $value := $labels }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{$rbacRules }}
+{{ else if eq .Values.installScope "namespace" }}
+{{ $wn := include "ack-elbv2-controller.watch-namespace" . }}
+{{ $namespaces := split "," $wn }}
+{{ range $namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ack-elbv2-controller
+  namespace: {{ . }}
+  labels:
+  {{- range $key, $value := $labels }}
+    {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{ $rbacRules }}
+{{ end }}
+{{ end }}

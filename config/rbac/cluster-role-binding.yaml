@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ack-elbv2-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ack-elbv2-controller
+subjects:
+- kind: ServiceAccount
+  name: ack-elbv2-controller
+  namespace: ack-system

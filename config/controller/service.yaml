@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ack-elbv2-metrics-service
+  namespace: ack-system
+spec:
+  selector:
+    app.kubernetes.io/name: ack-elbv2-controller
+  ports:
+    - name: metricsport
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  type: NodePort

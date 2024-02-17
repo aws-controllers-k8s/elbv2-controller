@@ -1,0 +1,9 @@
+ignore:
+  resource_names:
+  - Listener
+  - LoadBalancer
+  - Rule
+  - TargetGroup
+  - TrustStore
+sdk_names:
+  model_name: elasticloadbalancingv2

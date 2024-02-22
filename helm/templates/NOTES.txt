@@ -4,7 +4,7 @@ This chart deploys "public.ecr.aws/aws-controllers-k8s/elbv2-controller:0.0.0-no
 Check its status by running:
   kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/instance={{ .Release.Name }}"
 
-You are now able to create  () resources!
+You are now able to create Application Load Balancer (ALB) resources!
 
 The controller is running in "{{ .Values.installScope }}" mode.
 The controller is configured to manage AWS resources in region: "{{ .Values.aws.region }}"

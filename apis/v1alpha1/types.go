@@ -27,3 +27,79 @@ var (
 	_ = &aws.JSONValue{}
 	_ = ackv1alpha1.AWSAccountID("")
 )
+
+// Information about an Availability Zone.
+type AvailabilityZone struct {
+	LoadBalancerAddresses []*LoadBalancerAddress `json:"loadBalancerAddresses,omitempty"`
+	OutpostID             *string                `json:"outpostID,omitempty"`
+	SubnetID              *string                `json:"subnetID,omitempty"`
+	ZoneName              *string                `json:"zoneName,omitempty"`
+}
+
+// Information about a listener.
+type Listener struct {
+	LoadBalancerARN *string `json:"loadBalancerARN,omitempty"`
+}
+
+// Information about a static IP address for a load balancer.
+type LoadBalancerAddress struct {
+	AllocationID       *string `json:"allocationID,omitempty"`
+	IPv6Address        *string `json:"ipv6Address,omitempty"`
+	IPAddress          *string `json:"ipAddress,omitempty"`
+	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
+}
+
+// Information about the state of the load balancer.
+type LoadBalancerState struct {
+	Code   *string `json:"code,omitempty"`
+	Reason *string `json:"reason,omitempty"`
+}
+
+// Information about a load balancer.
+type LoadBalancer_SDK struct {
+	AvailabilityZones                                    []*AvailabilityZone `json:"availabilityZones,omitempty"`
+	CanonicalHostedZoneID                                *string             `json:"canonicalHostedZoneID,omitempty"`
+	CreatedTime                                          *metav1.Time        `json:"createdTime,omitempty"`
+	CustomerOwnedIPv4Pool                                *string             `json:"customerOwnedIPv4Pool,omitempty"`
+	DNSName                                              *string             `json:"dnsName,omitempty"`
+	EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic *string             `json:"enforceSecurityGroupInboundRulesOnPrivateLinkTraffic,omitempty"`
+	IPAddressType                                        *string             `json:"ipAddressType,omitempty"`
+	LoadBalancerARN                                      *string             `json:"loadBalancerARN,omitempty"`
+	LoadBalancerName                                     *string             `json:"loadBalancerName,omitempty"`
+	Scheme                                               *string             `json:"scheme,omitempty"`
+	SecurityGroups                                       []*string           `json:"securityGroups,omitempty"`
+	// Information about the state of the load balancer.
+	State *LoadBalancerState `json:"state,omitempty"`
+	Type  *string            `json:"type_,omitempty"`
+	VPCID *string            `json:"vpcID,omitempty"`
+}
+
+// Information about a subnet mapping.
+type SubnetMapping struct {
+	AllocationID       *string `json:"allocationID,omitempty"`
+	IPv6Address        *string `json:"ipv6Address,omitempty"`
+	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
+	SubnetID           *string `json:"subnetID,omitempty"`
+}
+
+// Information about a tag.
+type Tag struct {
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
+// The tags associated with a resource.
+type TagDescription struct {
+	Tags []*Tag `json:"tags,omitempty"`
+}
+
+// Information about a target.
+type TargetDescription struct {
+	AvailabilityZone *string `json:"availabilityZone,omitempty"`
+}
+
+// Information about a target group.
+type TargetGroup struct {
+	LoadBalancerARNs []*string `json:"loadBalancerARNs,omitempty"`
+	VPCID            *string   `json:"vpcID,omitempty"`
+}

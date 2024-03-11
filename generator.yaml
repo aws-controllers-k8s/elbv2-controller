@@ -1,9 +1,47 @@
 ignore:
   resource_names:
   - Listener
-  - LoadBalancer
+  # LoadBalancer
   - Rule
   - TargetGroup
   - TrustStore
+  field_paths:
+  - DescribeLoadBalancersOutput.NextMarker
 sdk_names:
   model_name: elasticloadbalancingv2
+operations:
+  DescribeLoadBalancers:
+    operation_type:
+    - ReadMany
+    resource_name: LoadBalancer
+    output_wrapper_field_path: LoadBalancers
+  CreateLoadBalancer:
+    operation_type:
+    - Create
+    resource_name: LoadBalancer
+    output_wrapper_field_path: LoadBalancers
+resources:
+  LoadBalancer:
+    fields:
+      Name:
+        is_primary_key: true
+      Type:
+        go_tag: json:"type,omitempty"
+    renames:
+      operations:
+        DescribeLoadBalancers:
+          output_fields:
+            LoadBalancerName: Name
+        CreateLoadBalancer:
+          output_fields:
+            LoadBalancerName: Name
+    exceptions:
+      errors:
+        404:
+          code: LoadBalancerNotFound
+      terminal_codes:
+      - ValidationError
+      - InvalidConfigurationRequest
+      - InvalidScheme
+      - InvalidSecurityGroup
+      - InvalidSubnet

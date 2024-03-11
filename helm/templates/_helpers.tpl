@@ -78,6 +78,26 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - loadbalancers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - loadbalancers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - services.k8s.aws
   resources:
   - adoptedresources

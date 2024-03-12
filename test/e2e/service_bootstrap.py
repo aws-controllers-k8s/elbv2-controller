@@ -17,13 +17,14 @@ import logging
 from acktest.bootstrapping import Resources, BootstrapFailureException
 
 from e2e import bootstrap_directory
+from acktest.bootstrapping.vpc import VPC
 from e2e.bootstrap_resources import BootstrapResources
 
 def service_bootstrap() -> Resources:
     logging.getLogger().setLevel(logging.INFO)
 
     resources = BootstrapResources(
-        # TODO: Add bootstrapping when you have defined the resources
+        ACKVPC=VPC(name_prefix="ack-elb-vpc", num_public_subnet=2, num_private_subnet=2),
     )
 
     try:

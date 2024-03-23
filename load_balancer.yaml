@@ -1,0 +1,12 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: LoadBalancer
+metadata:
+  name: elb-1
+spec:
+  name: elb-1
+  attributes:
+    - key: idle_timeout.timeout_seconds
+      value: "60"
+  subnets:
+  - subnet-0f5595c4e2fa307dc
+  - subnet-056093895af9c5926

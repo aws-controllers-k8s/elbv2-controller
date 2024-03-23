@@ -43,6 +43,17 @@ spec:
 
               Information about a load balancer.
             properties:
+              attributes:
+                description: The load balancer attributes.
+                items:
+                  description: Information about a load balancer attribute.
+                  properties:
+                    key:
+                      type: string
+                    value:
+                      type: string
+                  type: object
+                type: array
               customerOwnedIPv4Pool:
                 description: |-
                   [Application Load Balancers on Outposts] The ID of the customer-owned address

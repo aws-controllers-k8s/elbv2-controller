@@ -25,6 +25,8 @@ import (
 // Information about a load balancer.
 type LoadBalancerSpec struct {
 
+	// The load balancer attributes.
+	Attributes []*LoadBalancerAttribute `json:"attributes,omitempty"`
 	// [Application Load Balancers on Outposts] The ID of the customer-owned address
 	// pool (CoIP pool).
 	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`

@@ -49,6 +49,12 @@ type LoadBalancerAddress struct {
 	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
 }
 
+// Information about a load balancer attribute.
+type LoadBalancerAttribute struct {
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
 // Information about the state of the load balancer.
 type LoadBalancerState struct {
 	Code   *string `json:"code,omitempty"`

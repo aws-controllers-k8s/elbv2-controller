@@ -42,6 +42,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customPreCompare(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.CustomerOwnedIPv4Pool, b.ko.Spec.CustomerOwnedIPv4Pool) {
 		delta.Add("Spec.CustomerOwnedIPv4Pool", a.ko.Spec.CustomerOwnedIPv4Pool, b.ko.Spec.CustomerOwnedIPv4Pool)

@@ -27,3 +27,7 @@ class ELBValidator:
 
     def load_balancer_exists(self, name):
         return self.get_load_balancer(name) is not None
+    
+    def get_load_balancer_attributes(self, arn):
+        response = self.elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
+        return response['Attributes']

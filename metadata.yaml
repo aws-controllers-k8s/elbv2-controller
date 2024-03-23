@@ -1,6 +1,6 @@
 service:
-  full_name: Application Load Balancer
-  short_name: ALB
+  full_name: Elastic Load Balancing
+  short_name: ELB
   link: https://aws.amazon.com/elasticloadbalancing/application-load-balancer/
   documentation: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html
 api_versions:

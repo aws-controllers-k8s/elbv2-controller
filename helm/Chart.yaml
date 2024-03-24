@@ -1,8 +1,8 @@
 apiVersion: v1
 name: elbv2-chart
-description: A Helm chart for the ACK service controller for Application Load Balancer (ALB)
-version: 0.0.2
-appVersion: 0.0.2
+description: A Helm chart for the ACK service controller for Elastic Load Balancing (ELB)
+version: 0.0.3
+appVersion: 0.0.3
 home: https://github.com/aws-controllers-k8s/elbv2-controller
 icon: https://raw.githubusercontent.com/aws/eks-charts/master/docs/logo/aws.png
 sources:
@@ -10,7 +10,7 @@ sources:
 maintainers:
   - name: ACK Admins
     url: https://github.com/orgs/aws-controllers-k8s/teams/ack-admin
-  - name: ALB Admins
+  - name: ELB Admins
     url: https://github.com/orgs/aws-controllers-k8s/teams/elbv2-maintainer
 keywords:
   - aws

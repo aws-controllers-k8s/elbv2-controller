@@ -1,0 +1,16 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: Rule
+metadata:
+  name: $RULE_NAME
+spec:
+  priority: 300
+  listenerARN: $LISTENER_ARN
+  actions:
+  - type: "forward"
+    targetGroupARN: $TARGET_GROUP_ARN
+  conditions:
+  - field: http-request-method
+    httpRequestMethodConfig:
+      values:
+      - GET
+      - POST

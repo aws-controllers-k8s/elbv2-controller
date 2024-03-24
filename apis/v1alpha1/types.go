@@ -133,6 +133,29 @@ type ForwardActionConfig struct {
 	TargetGroups                []*TargetGroupTuple          `json:"targetGroups,omitempty"`
 }
 
+// Information about an HTTP header condition.
+//
+// There is a set of standard HTTP header fields. You can also define custom
+// HTTP header fields.
+type HTTPHeaderConditionConfig struct {
+	HTTPHeaderName *string   `json:"httpHeaderName,omitempty"`
+	Values         []*string `json:"values,omitempty"`
+}
+
+// Information about an HTTP method condition.
+//
+// HTTP defines a set of request methods, also referred to as HTTP verbs. For
+// more information, see the HTTP Method Registry (https://www.iana.org/assignments/http-methods/http-methods.xhtml).
+// You can also define custom HTTP methods.
+type HTTPRequestMethodConditionConfig struct {
+	Values []*string `json:"values,omitempty"`
+}
+
+// Information about a host header condition.
+type HostHeaderConditionConfig struct {
+	Values []*string `json:"values,omitempty"`
+}
+
 // Information about a listener.
 type Listener_SDK struct {
 	AlpnPolicy      []*string      `json:"alpnPolicy,omitempty"`
@@ -201,6 +224,27 @@ type MutualAuthenticationAttributes struct {
 	TrustStoreARN                 *string `json:"trustStoreARN,omitempty"`
 }
 
+// Information about a path pattern condition.
+type PathPatternConditionConfig struct {
+	Values []*string `json:"values,omitempty"`
+}
+
+// Information about a query string condition.
+//
+// The query string component of a URI starts after the first '?' character
+// and is terminated by either a '#' character or the end of the URI. A typical
+// query string contains key/value pairs separated by '&' characters. The allowed
+// characters are specified by RFC 3986. Any character can be percentage encoded.
+type QueryStringConditionConfig struct {
+	Values []*QueryStringKeyValuePair `json:"values,omitempty"`
+}
+
+// Information about a key/value pair.
+type QueryStringKeyValuePair struct {
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
 // Information about a redirect action.
 //
 // A URI consists of the following components: protocol://hostname:port/path?query.
@@ -231,14 +275,76 @@ type RedirectActionConfig struct {
 	StatusCode *string `json:"statusCode,omitempty"`
 }
 
+// Information about a condition for a rule.
+//
+// Each rule can optionally include up to one of each of the following conditions:
+// http-request-method, host-header, path-pattern, and source-ip. Each rule
+// can also optionally include one or more of each of the following conditions:
+// http-header and query-string. Note that the value for a condition cannot
+// be empty.
+//
+// For more information, see Quotas for your Application Load Balancers (https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html).
+type RuleCondition struct {
+	Field *string `json:"field,omitempty"`
+	// Information about a host header condition.
+	HostHeaderConfig *HostHeaderConditionConfig `json:"hostHeaderConfig,omitempty"`
+	// Information about an HTTP header condition.
+	//
+	// There is a set of standard HTTP header fields. You can also define custom
+	// HTTP header fields.
+	HTTPHeaderConfig *HTTPHeaderConditionConfig `json:"httpHeaderConfig,omitempty"`
+	// Information about an HTTP method condition.
+	//
+	// HTTP defines a set of request methods, also referred to as HTTP verbs. For
+	// more information, see the HTTP Method Registry (https://www.iana.org/assignments/http-methods/http-methods.xhtml).
+	// You can also define custom HTTP methods.
+	HTTPRequestMethodConfig *HTTPRequestMethodConditionConfig `json:"httpRequestMethodConfig,omitempty"`
+	// Information about a path pattern condition.
+	PathPatternConfig *PathPatternConditionConfig `json:"pathPatternConfig,omitempty"`
+	// Information about a query string condition.
+	//
+	// The query string component of a URI starts after the first '?' character
+	// and is terminated by either a '#' character or the end of the URI. A typical
+	// query string contains key/value pairs separated by '&' characters. The allowed
+	// characters are specified by RFC 3986. Any character can be percentage encoded.
+	QueryStringConfig *QueryStringConditionConfig `json:"queryStringConfig,omitempty"`
+	// Information about a source IP condition.
+	//
+	// You can use this condition to route based on the IP address of the source
+	// that connects to the load balancer. If a client is behind a proxy, this is
+	// the IP address of the proxy not the IP address of the client.
+	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
+	Values         []*string                `json:"values,omitempty"`
+}
+
+// Information about the priorities for the rules for a listener.
+type RulePriorityPair struct {
+	Priority *int64  `json:"priority,omitempty"`
+	RuleARN  *string `json:"ruleARN,omitempty"`
+}
+
 // Information about a rule.
-type Rule struct {
-	Actions []*Action `json:"actions,omitempty"`
+type Rule_SDK struct {
+	Actions    []*Action        `json:"actions,omitempty"`
+	Conditions []*RuleCondition `json:"conditions,omitempty"`
+	IsDefault  *bool            `json:"isDefault,omitempty"`
+	Priority   *string          `json:"priority,omitempty"`
+	RuleARN    *string          `json:"ruleARN,omitempty"`
 }
 
 // Information about a policy used for SSL negotiation.
 type SSLPolicy struct {
-	Name *string `json:"name,omitempty"`
+	Name                       *string   `json:"name,omitempty"`
+	SupportedLoadBalancerTypes []*string `json:"supportedLoadBalancerTypes,omitempty"`
+}
+
+// Information about a source IP condition.
+//
+// You can use this condition to route based on the IP address of the source
+// that connects to the load balancer. If a client is behind a proxy, this is
+// the IP address of the proxy not the IP address of the client.
+type SourceIPConditionConfig struct {
+	Values []*string `json:"values,omitempty"`
 }
 
 // Information about a subnet mapping.

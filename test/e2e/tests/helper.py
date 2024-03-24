@@ -52,4 +52,14 @@ class ELBValidator:
     def target_group_exists(self, name):
         return self.get_target_group(name) is not None
     
+    def get_rule(self, arn):
+        try:
+            response = self.elbv2_client.describe_rules(RuleArns=[arn])
+            return response['Rules'][0]
+        except Exception:
+            return None
+        
+    def rule_exists(self, arn):
+        return self.get_rule(arn) is not None
+    
 

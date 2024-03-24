@@ -73,6 +73,26 @@ rules:
 - apiGroups:
   - elbv2.services.k8s.aws
   resources:
+  - rules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - rules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
   - targetgroups
   verbs:
   - create

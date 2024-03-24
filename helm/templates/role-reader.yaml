@@ -11,6 +11,7 @@ rules:
   resources:
   - listeners
   - loadbalancers
+  - rules
   - targetgroups
   verbs:
   - get

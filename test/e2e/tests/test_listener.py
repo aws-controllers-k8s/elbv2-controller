@@ -77,7 +77,7 @@ def simple_listener(elbv2_client, simple_load_balancer):
 
 @service_marker
 @pytest.mark.canary
-class TestLoadBalancer:
+class TestListener:
     def test_create_delete(self, elbv2_client, simple_listener):
         (ref, cr) = simple_listener
         assert cr is not None

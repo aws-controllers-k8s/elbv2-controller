@@ -1,3 +1,5 @@
+github.com/aws-controllers-k8s/ec2-controller v1.2.4 h1:lLm/jH4Zmylykuyjo/P8lgHYCdu4do+apX8A34cA0Rk=
+github.com/aws-controllers-k8s/ec2-controller v1.2.4/go.mod h1:d1pRZ8OyXqokbMNmsVcr/gD6ZZ8EJurOK/6jbiV4y14=
 github.com/aws-controllers-k8s/runtime v0.32.0 h1:R0dQs8vRlK50KZ7rgdExqExdlUgFSAzDT8q1HCxc1uc=
 github.com/aws-controllers-k8s/runtime v0.32.0/go.mod h1:6qr9ULkjOHo0fTwEUkE+48IxHqNbHxvvf/9JzGoR8pM=
 github.com/aws/aws-sdk-go v1.50.20 h1:xfAnSDVf/azIWTVQXQODp89bubvCS85r70O3nuQ4dnE=

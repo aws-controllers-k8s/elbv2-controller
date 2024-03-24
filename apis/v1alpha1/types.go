@@ -67,7 +67,9 @@ type Action struct {
 	// or the query to "#{query}&value=xyz".
 	RedirectConfig *RedirectActionConfig `json:"redirectConfig,omitempty"`
 	TargetGroupARN *string               `json:"targetGroupARN,omitempty"`
-	Type           *string               `json:"type,omitempty"`
+	// Reference field for TargetGroupARN
+	TargetGroupRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"targetGroupRef,omitempty"`
+	Type           *string                                  `json:"type,omitempty"`
 }
 
 // Request parameters to use when integrating with Amazon Cognito to authenticate
@@ -353,6 +355,8 @@ type SubnetMapping struct {
 	IPv6Address        *string `json:"ipv6Address,omitempty"`
 	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
 	SubnetID           *string `json:"subnetID,omitempty"`
+	// Reference field for SubnetID
+	SubnetRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRef,omitempty"`
 }
 
 // Information about a tag.

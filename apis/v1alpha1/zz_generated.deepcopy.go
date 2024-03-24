@@ -62,6 +62,11 @@ func (in *Action) DeepCopyInto(out *Action) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TargetGroupRef != nil {
+		in, out := &in.TargetGroupRef, &out.TargetGroupRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Type != nil {
 		in, out := &in.Type, &out.Type
 		*out = new(string)
@@ -871,6 +876,17 @@ func (in *LoadBalancerSpec) DeepCopyInto(out *LoadBalancerSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.SecurityGroupRefs != nil {
+		in, out := &in.SecurityGroupRefs, &out.SecurityGroupRefs
+		*out = make([]*corev1alpha1.AWSResourceReferenceWrapper, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
 	if in.SecurityGroups != nil {
 		in, out := &in.SecurityGroups, &out.SecurityGroups
 		*out = make([]*string, len(*in))
@@ -889,6 +905,17 @@ func (in *LoadBalancerSpec) DeepCopyInto(out *LoadBalancerSpec) {
 			if (*in)[i] != nil {
 				in, out := &(*in)[i], &(*out)[i]
 				*out = new(SubnetMapping)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
+	if in.SubnetRefs != nil {
+		in, out := &in.SubnetRefs, &out.SubnetRefs
+		*out = make([]*corev1alpha1.AWSResourceReferenceWrapper, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(corev1alpha1.AWSResourceReferenceWrapper)
 				(*in).DeepCopyInto(*out)
 			}
 		}
@@ -1476,6 +1503,11 @@ func (in *RuleSpec) DeepCopyInto(out *RuleSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ListenerRef != nil {
+		in, out := &in.ListenerRef, &out.ListenerRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
 		*out = new(int64)
@@ -1671,6 +1703,11 @@ func (in *SubnetMapping) DeepCopyInto(out *SubnetMapping) {
 		in, out := &in.SubnetID, &out.SubnetID
 		*out = new(string)
 		**out = **in
+	}
+	if in.SubnetRef != nil {
+		in, out := &in.SubnetRef, &out.SubnetRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
@@ -1912,6 +1949,11 @@ func (in *TargetGroupSpec) DeepCopyInto(out *TargetGroupSpec) {
 		in, out := &in.VPCID, &out.VPCID
 		*out = new(string)
 		**out = **in
+	}
+	if in.VPCRef != nil {
+		in, out := &in.VPCRef, &out.VPCRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

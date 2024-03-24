@@ -72,6 +72,9 @@ func newResourceDelta(
 			delta.Add("Spec.Scheme", a.ko.Spec.Scheme, b.ko.Spec.Scheme)
 		}
 	}
+	if !reflect.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
+		delta.Add("Spec.SecurityGroupRefs", a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs)
+	}
 	if len(a.ko.Spec.SecurityGroups) != len(b.ko.Spec.SecurityGroups) {
 		delta.Add("Spec.SecurityGroups", a.ko.Spec.SecurityGroups, b.ko.Spec.SecurityGroups)
 	} else if len(a.ko.Spec.SecurityGroups) > 0 {
@@ -85,6 +88,9 @@ func newResourceDelta(
 		if !reflect.DeepEqual(a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings) {
 			delta.Add("Spec.SubnetMappings", a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings)
 		}
+	}
+	if !reflect.DeepEqual(a.ko.Spec.SubnetRefs, b.ko.Spec.SubnetRefs) {
+		delta.Add("Spec.SubnetRefs", a.ko.Spec.SubnetRefs, b.ko.Spec.SubnetRefs)
 	}
 	if len(a.ko.Spec.Subnets) != len(b.ko.Spec.Subnets) {
 		delta.Add("Spec.Subnets", a.ko.Spec.Subnets, b.ko.Spec.Subnets)

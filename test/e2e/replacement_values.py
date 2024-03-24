@@ -17,5 +17,6 @@ from e2e.bootstrap_resources import get_bootstrap_resources
 
 REPLACEMENT_VALUES = {
     "PUBLIC_SUBNET_1": get_bootstrap_resources().ACKVPC.public_subnets.subnet_ids[0],
-    "PUBLIC_SUBNET_2": get_bootstrap_resources().ACKVPC.public_subnets.subnet_ids[1]
+    "PUBLIC_SUBNET_2": get_bootstrap_resources().ACKVPC.public_subnets.subnet_ids[1],
+    "VPC_ID": get_bootstrap_resources().ACKVPC.vpc_id,
 }

@@ -14,16 +14,15 @@
 """Integration tests for the ELB LoadBalancer API.
 """
 
-import pytest
-import time
 import logging
+import time
 
-from acktest.resources import random_suffix_name
+import pytest
 from acktest.k8s import resource as k8s
-
-from e2e import service_marker, CRD_GROUP, CRD_VERSION, load_elbv2_resource
-from e2e.replacement_values import REPLACEMENT_VALUES
+from acktest.resources import random_suffix_name
+from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
+from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.tests.helper import ELBValidator
 
 RESOURCE_PLURAL = "loadbalancers"
@@ -76,26 +75,33 @@ def simple_load_balancer(elbv2_client):
 @pytest.mark.canary
 class TestLoadBalancer:
     def test_create_delete(self, elbv2_client, simple_load_balancer):
-        (ref, _, load_balancer) = simple_load_balancer
-        assert load_balancer is not None
+        (ref, cr, lb_name) = simple_load_balancer
+        assert lb_name is not None
 
         validator = ELBValidator(elbv2_client)
-        assert validator.load_balancer_exists(load_balancer)
+        assert validator.load_balancer_exists(lb_name)
 
-        # Update settings
-        """ updates = {
+        # Update attributes
+        updates = {
             "spec": {
-                "settings": [
+                "attributes": [
                     {
-                        "name": "containerInsights",
-                        "value": "enabled"
+                        "key": "client_keep_alive.seconds",
+                        "value": "4200"
                     }
-                ],
+                ]
             },
         }
         k8s.patch_custom_resource(ref, updates)
         time.sleep(UPDATE_WAIT_AFTER_SECONDS)
 
-        cs = validator.get_cluster(cluster_name)
-        assert cs["clusters"][0]["settings"][0]["name"] == "containerInsights"
-        assert cs["clusters"][0]["settings"][0]["value"] == "enabled" """
+        lbAttributes = validator.get_load_balancer_attributes(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbAttributes is not None
+
+        # find the attribute we just updated
+        for attribute in lbAttributes:
+            if attribute["Key"] == "client_keep_alive.seconds":
+                assert attribute["Value"] == "4200"
+                break
+        else:
+            assert False, "Attribute not found"

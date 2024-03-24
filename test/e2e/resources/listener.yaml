@@ -1,0 +1,17 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: Listener
+metadata:
+  name: $LISTENER_NAME
+spec:
+  defaultActions:
+  - type: "redirect"
+    redirectConfig:
+      protocol: "HTTPS"
+      port: "443"
+      host: "#{host}"
+      path: "/#{path}"
+      query: "#{query}"
+      statusCode: "HTTP_301"
+  loadBalancerARN: $LOAD_BALANCER_ARN
+  port: 80
+  protocol: "HTTP"

@@ -31,3 +31,13 @@ class ELBValidator:
     def get_load_balancer_attributes(self, arn):
         response = self.elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
         return response['Attributes']
+    
+    def get_listener(self, arn):
+        try:
+            response = self.elbv2_client.describe_listeners(ListenerArns=[arn])
+            return response['Listeners'][0]
+        except Exception:
+            return None
+        
+    def listener_exists(self, arn):
+        return self.get_listener(arn) is not None

@@ -64,6 +64,9 @@ func newResourceDelta(
 			delta.Add("Spec.ListenerARN", a.ko.Spec.ListenerARN, b.ko.Spec.ListenerARN)
 		}
 	}
+	if !reflect.DeepEqual(a.ko.Spec.ListenerRef, b.ko.Spec.ListenerRef) {
+		delta.Add("Spec.ListenerRef", a.ko.Spec.ListenerRef, b.ko.Spec.ListenerRef)
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Priority, b.ko.Spec.Priority) {
 		delta.Add("Spec.Priority", a.ko.Spec.Priority, b.ko.Spec.Priority)
 	} else if a.ko.Spec.Priority != nil && b.ko.Spec.Priority != nil {

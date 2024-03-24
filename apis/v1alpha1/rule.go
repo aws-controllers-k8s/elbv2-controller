@@ -32,8 +32,8 @@ type RuleSpec struct {
 	// +kubebuilder:validation:Required
 	Conditions []*RuleCondition `json:"conditions"`
 	// The Amazon Resource Name (ARN) of the listener.
-	// +kubebuilder:validation:Required
-	ListenerARN *string `json:"listenerARN"`
+	ListenerARN *string                                  `json:"listenerARN,omitempty"`
+	ListenerRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"listenerRef,omitempty"`
 	// The rule priority. A listener can't have multiple rules with the same priority.
 	// +kubebuilder:validation:Required
 	Priority *int64 `json:"priority"`

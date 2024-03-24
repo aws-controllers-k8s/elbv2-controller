@@ -80,6 +80,21 @@ resources:
           path: Attributes
         compare:
           is_ignored: true
+      SecurityGroups:
+        references:
+          resource: SecurityGroup
+          path: Status.ACKResourceMetadata.ARN
+          service_name: ec2
+      Subnets:
+        references:
+          resource: Subnet
+          path: Status.ACKResourceMetadata.ARN
+          service_name: ec2
+      SubnetMappings.SubnetID:
+        references:
+          resource: Subnet
+          path: Status.ACKResourceMetadata.ARN
+          service_name: ec2
     update_operation:
       custom_method_name: customUpdateLoadBalancer
     renames:
@@ -105,6 +120,10 @@ resources:
         template_path: hooks/load_balancer/sdk_read_many_post_set_output.go.tpl
   Listener:
     fields:
+      DefaultActions.TargetGroupARN:
+        references:
+          resource: TargetGroup
+          path: Status.ACKResourceMetadata.ARN
       LoadBalancerArn:
         is_read_only: false
         is_primary_key: true
@@ -136,6 +155,11 @@ resources:
     fields:
       Name:
         is_required: true
+      VpcId:
+        references:
+          resource: VPC
+          path: Status.VPCID
+          service_name: ec2
     exceptions:
       errors:
         404:
@@ -156,6 +180,13 @@ resources:
     fields:
       ListenerArn:
         is_primary_key: true
+        references:
+          resource: Listener
+          path: Status.ACKResourceMetadata.ARN
+      Actions.targetGroupARN:
+        references:
+          resource: TargetGroup
+          path: Status.ACKResourceMetadata.ARN
       Priority:
         set:
         - ignore: true

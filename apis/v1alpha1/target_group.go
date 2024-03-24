@@ -125,7 +125,8 @@ type TargetGroupSpec struct {
 	UnhealthyThresholdCount *int64 `json:"unhealthyThresholdCount,omitempty"`
 	// The identifier of the virtual private cloud (VPC). If the target is a Lambda
 	// function, this parameter does not apply. Otherwise, this parameter is required.
-	VPCID *string `json:"vpcID,omitempty"`
+	VPCID  *string                                  `json:"vpcID,omitempty"`
+	VPCRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"vpcRef,omitempty"`
 }
 
 // TargetGroupStatus defines the observed state of TargetGroup

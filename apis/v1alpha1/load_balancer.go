@@ -53,7 +53,8 @@ type LoadBalancerSpec struct {
 	// The default is an Internet-facing load balancer.
 	//
 	// You cannot specify a scheme for a Gateway Load Balancer.
-	Scheme *string `json:"scheme,omitempty"`
+	Scheme            *string                                    `json:"scheme,omitempty"`
+	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// [Application Load Balancers and Network Load Balancers] The IDs of the security
 	// groups for the load balancer.
 	SecurityGroups []*string `json:"securityGroups,omitempty"`
@@ -77,7 +78,8 @@ type LoadBalancerSpec struct {
 	//
 	// [Gateway Load Balancers] You can specify subnets from one or more Availability
 	// Zones. You cannot specify Elastic IP addresses for your subnets.
-	SubnetMappings []*SubnetMapping `json:"subnetMappings,omitempty"`
+	SubnetMappings []*SubnetMapping                           `json:"subnetMappings,omitempty"`
+	SubnetRefs     []*ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRefs,omitempty"`
 	// The IDs of the subnets. You can specify only one subnet per Availability
 	// Zone. You must specify either subnets or subnet mappings, but not both. To
 	// specify an Elastic IP address, specify subnet mappings instead of subnets.

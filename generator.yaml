@@ -2,7 +2,7 @@ ignore:
   resource_names:
   # Listener
   # LoadBalancer
-  - Rule
+  # Rule
   # TargetGroup
   - TrustStore
   field_paths:
@@ -51,6 +51,22 @@ operations:
     - Update
     resource_name: TargetGroup
     output_wrapper_field_path: TargetGroups
+  DescribeRules:
+    operation_type:
+    - ReadMany
+    resource_name: Rule
+    output_wrapper_field_path: Rules
+    custom_check_required_fields_missing_method: customCheckRequiredFieldsMissingMethod
+  CreateRule:
+    operation_type:
+    - Create
+    resource_name: Rule
+    output_wrapper_field_path: Rules
+  ModifyRule:
+    operation_type:
+    - Update
+    resource_name: Rule
+    output_wrapper_field_path: Rules
 resources:
   LoadBalancer:
     fields:
@@ -136,3 +152,28 @@ resources:
         CreateTargetGroup:
           output_fields:
             TargetGroupName: Name
+  Rule:
+    fields:
+      ListenerArn:
+        is_primary_key: true
+      Priority:
+        set:
+        - ignore: true
+    exceptions:
+      errors:
+        404:
+          code: RuleNotFound
+      terminal_codes:
+      - InvalidConfigurationRequest
+      - IncompatibleProtocols
+      - UnsupportedProtocol
+      - InvalidLoadBalancerAction
+    tags:
+      ignore: true
+    hooks:
+      sdk_read_many_post_build_request:
+        template_path: hooks/rule/sdk_read_many_post_build_request.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/rule/sdk_update_pre_build_request.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/rule/sdk_read_many_post_set_output.go.tpl

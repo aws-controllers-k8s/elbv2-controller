@@ -1,0 +1,16 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: Rule
+metadata:
+  name: mrule
+spec:
+  priority: 300
+  listenerARN: arn:aws:elasticloadbalancing:us-west-2:095708837592:listener/app/elb-1/da0c0ae403a7cdf2/6db0936d36d708bc
+  actions:
+  - type: "forward"
+    targetGroupARN: arn:aws:elasticloadbalancing:us-west-2:095708837592:targetgroup/tg5/ece8ca88aead6bbe
+  conditions:
+  - field: http-request-method
+    httpRequestMethodConfig:
+      values:
+      - GET
+      - POST

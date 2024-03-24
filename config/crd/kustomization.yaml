@@ -4,4 +4,5 @@ resources:
   - common
   - bases/elbv2.services.k8s.aws_listeners.yaml
   - bases/elbv2.services.k8s.aws_loadbalancers.yaml
+  - bases/elbv2.services.k8s.aws_rules.yaml
   - bases/elbv2.services.k8s.aws_targetgroups.yaml

@@ -2,4 +2,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - common
+  - bases/elbv2.services.k8s.aws_listeners.yaml
   - bases/elbv2.services.k8s.aws_loadbalancers.yaml

@@ -1,6 +1,6 @@
 ignore:
   resource_names:
-  - Listener
+  # Listener
   # LoadBalancer
   - Rule
   - TargetGroup
@@ -20,6 +20,22 @@ operations:
     - Create
     resource_name: LoadBalancer
     output_wrapper_field_path: LoadBalancers
+  DescribeListeners:
+    operation_type:
+    - ReadMany
+    resource_name: Listener
+    output_wrapper_field_path: Listeners
+    custom_check_required_fields_missing_method: customCheckRequiredFieldsMissingMethod
+  CreateListener:
+    operation_type:
+    - Create
+    resource_name: Listener
+    output_wrapper_field_path: Listeners
+  ModifyListener:
+    operation_type:
+    - Update
+    resource_name: Listener
+    output_wrapper_field_path: Listeners
 resources:
   LoadBalancer:
     fields:
@@ -56,3 +72,43 @@ resources:
         code: customPreCompare(delta, a, b)
       sdk_read_many_post_set_output:
         template_path: hooks/load_balancer/sdk_read_many_post_set_output.go.tpl
+  Listener:
+    fields:
+      LoadBalancerArn:
+        is_read_only: false
+        is_primary_key: true
+        references:
+          resource: LoadBalancer
+          path: Status.ACKResourceMetadata.ARN
+      DefaultActions.Type:
+        go_tag: json:"type,omitempty"
+    exceptions:
+      errors:
+        404:
+          code: ListenerNotFound
+      terminal_codes:
+      - ValidationError
+      - ALPNPolicyNotFound
+      - DuplicateListener
+      - IncompatibleProtocols
+      - InvalidConfigurationRequest 
+      - InvalidLoadBalancerAction
+      - SSLPolicyNotFound
+      - UnsupportedProtocol
+      - InvalidParameter
+    tags:
+      ignore: true
+    renames:
+      operations:
+        DescribeListeners:
+          output_fields:
+            ListenerName: Name
+        CreateListener:
+          output_fields:
+            ListenerName: Name
+        ModifyListener:
+          output_fields:
+            ListenerName: Name
+    hooks:
+      sdk_read_many_post_build_request:
+        template_path: hooks/listener/sdk_read_many_post_build_request.go.tpl 

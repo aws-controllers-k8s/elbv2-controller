@@ -28,6 +28,78 @@ var (
 	_ = ackv1alpha1.AWSAccountID("")
 )
 
+// Information about an action.
+//
+// Each rule must include exactly one of the following types of actions: forward,
+// fixed-response, or redirect, and it must be the last action to be performed.
+type Action struct {
+	// Request parameters to use when integrating with Amazon Cognito to authenticate
+	// users.
+	AuthenticateCognitoConfig *AuthenticateCognitoActionConfig `json:"authenticateCognitoConfig,omitempty"`
+	// Request parameters when using an identity provider (IdP) that is compliant
+	// with OpenID Connect (OIDC) to authenticate users.
+	AuthenticateOIDCConfig *AuthenticateOIDCActionConfig `json:"authenticateOIDCConfig,omitempty"`
+	// Information about an action that returns a custom HTTP response.
+	FixedResponseConfig *FixedResponseActionConfig `json:"fixedResponseConfig,omitempty"`
+	// Information about a forward action.
+	ForwardConfig *ForwardActionConfig `json:"forwardConfig,omitempty"`
+	Order         *int64               `json:"order,omitempty"`
+	// Information about a redirect action.
+	//
+	// A URI consists of the following components: protocol://hostname:port/path?query.
+	// You must modify at least one of the following components to avoid a redirect
+	// loop: protocol, hostname, port, or path. Any components that you do not modify
+	// retain their original values.
+	//
+	// You can reuse URI components using the following reserved keywords:
+	//
+	//    * #{protocol}
+	//
+	//    * #{host}
+	//
+	//    * #{port}
+	//
+	//    * #{path} (the leading "/" is removed)
+	//
+	//    * #{query}
+	//
+	// For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}",
+	// or the query to "#{query}&value=xyz".
+	RedirectConfig *RedirectActionConfig `json:"redirectConfig,omitempty"`
+	TargetGroupARN *string               `json:"targetGroupARN,omitempty"`
+	Type           *string               `json:"type,omitempty"`
+}
+
+// Request parameters to use when integrating with Amazon Cognito to authenticate
+// users.
+type AuthenticateCognitoActionConfig struct {
+	AuthenticationRequestExtraParams map[string]*string `json:"authenticationRequestExtraParams,omitempty"`
+	OnUnauthenticatedRequest         *string            `json:"onUnauthenticatedRequest,omitempty"`
+	Scope                            *string            `json:"scope,omitempty"`
+	SessionCookieName                *string            `json:"sessionCookieName,omitempty"`
+	SessionTimeout                   *int64             `json:"sessionTimeout,omitempty"`
+	UserPoolARN                      *string            `json:"userPoolARN,omitempty"`
+	UserPoolClientID                 *string            `json:"userPoolClientID,omitempty"`
+	UserPoolDomain                   *string            `json:"userPoolDomain,omitempty"`
+}
+
+// Request parameters when using an identity provider (IdP) that is compliant
+// with OpenID Connect (OIDC) to authenticate users.
+type AuthenticateOIDCActionConfig struct {
+	AuthenticationRequestExtraParams map[string]*string `json:"authenticationRequestExtraParams,omitempty"`
+	AuthorizationEndpoint            *string            `json:"authorizationEndpoint,omitempty"`
+	ClientID                         *string            `json:"clientID,omitempty"`
+	ClientSecret                     *string            `json:"clientSecret,omitempty"`
+	Issuer                           *string            `json:"issuer,omitempty"`
+	OnUnauthenticatedRequest         *string            `json:"onUnauthenticatedRequest,omitempty"`
+	Scope                            *string            `json:"scope,omitempty"`
+	SessionCookieName                *string            `json:"sessionCookieName,omitempty"`
+	SessionTimeout                   *int64             `json:"sessionTimeout,omitempty"`
+	TokenEndpoint                    *string            `json:"tokenEndpoint,omitempty"`
+	UseExistingClientSecret          *bool              `json:"useExistingClientSecret,omitempty"`
+	UserInfoEndpoint                 *string            `json:"userInfoEndpoint,omitempty"`
+}
+
 // Information about an Availability Zone.
 type AvailabilityZone struct {
 	LoadBalancerAddresses []*LoadBalancerAddress `json:"loadBalancerAddresses,omitempty"`
@@ -36,9 +108,43 @@ type AvailabilityZone struct {
 	ZoneName              *string                `json:"zoneName,omitempty"`
 }
 
+// Information about an SSL server certificate.
+type Certificate struct {
+	CertificateARN *string `json:"certificateARN,omitempty"`
+	IsDefault      *bool   `json:"isDefault,omitempty"`
+}
+
+// Information about the revocations used by a trust store.
+type DescribeTrustStoreRevocation struct {
+	TrustStoreARN *string `json:"trustStoreARN,omitempty"`
+}
+
+// Information about an action that returns a custom HTTP response.
+type FixedResponseActionConfig struct {
+	ContentType *string `json:"contentType,omitempty"`
+	MessageBody *string `json:"messageBody,omitempty"`
+	StatusCode  *string `json:"statusCode,omitempty"`
+}
+
+// Information about a forward action.
+type ForwardActionConfig struct {
+	// Information about the target group stickiness for a rule.
+	TargetGroupStickinessConfig *TargetGroupStickinessConfig `json:"targetGroupStickinessConfig,omitempty"`
+	TargetGroups                []*TargetGroupTuple          `json:"targetGroups,omitempty"`
+}
+
 // Information about a listener.
-type Listener struct {
-	LoadBalancerARN *string `json:"loadBalancerARN,omitempty"`
+type Listener_SDK struct {
+	AlpnPolicy      []*string      `json:"alpnPolicy,omitempty"`
+	Certificates    []*Certificate `json:"certificates,omitempty"`
+	DefaultActions  []*Action      `json:"defaultActions,omitempty"`
+	ListenerARN     *string        `json:"listenerARN,omitempty"`
+	LoadBalancerARN *string        `json:"loadBalancerARN,omitempty"`
+	// Information about the mutual authentication attributes of a listener.
+	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
+	Port                 *int64                          `json:"port,omitempty"`
+	Protocol             *string                         `json:"protocol,omitempty"`
+	SSLPolicy            *string                         `json:"sslPolicy,omitempty"`
 }
 
 // Information about a static IP address for a load balancer.
@@ -80,6 +186,53 @@ type LoadBalancer_SDK struct {
 	VPCID *string            `json:"vpcID,omitempty"`
 }
 
+// Information about the mutual authentication attributes of a listener.
+type MutualAuthenticationAttributes struct {
+	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
+	Mode                          *string `json:"mode,omitempty"`
+	TrustStoreARN                 *string `json:"trustStoreARN,omitempty"`
+}
+
+// Information about a redirect action.
+//
+// A URI consists of the following components: protocol://hostname:port/path?query.
+// You must modify at least one of the following components to avoid a redirect
+// loop: protocol, hostname, port, or path. Any components that you do not modify
+// retain their original values.
+//
+// You can reuse URI components using the following reserved keywords:
+//
+//   - #{protocol}
+//
+//   - #{host}
+//
+//   - #{port}
+//
+//   - #{path} (the leading "/" is removed)
+//
+//   - #{query}
+//
+// For example, you can change the path to "/new/#{path}", the hostname to "example.#{host}",
+// or the query to "#{query}&value=xyz".
+type RedirectActionConfig struct {
+	Host       *string `json:"host,omitempty"`
+	Path       *string `json:"path,omitempty"`
+	Port       *string `json:"port,omitempty"`
+	Protocol   *string `json:"protocol,omitempty"`
+	Query      *string `json:"query,omitempty"`
+	StatusCode *string `json:"statusCode,omitempty"`
+}
+
+// Information about a rule.
+type Rule struct {
+	Actions []*Action `json:"actions,omitempty"`
+}
+
+// Information about a policy used for SSL negotiation.
+type SSLPolicy struct {
+	Name *string `json:"name,omitempty"`
+}
+
 // Information about a subnet mapping.
 type SubnetMapping struct {
 	AllocationID       *string `json:"allocationID,omitempty"`
@@ -102,10 +255,38 @@ type TagDescription struct {
 // Information about a target.
 type TargetDescription struct {
 	AvailabilityZone *string `json:"availabilityZone,omitempty"`
+	Port             *int64  `json:"port,omitempty"`
 }
 
 // Information about a target group.
 type TargetGroup struct {
-	LoadBalancerARNs []*string `json:"loadBalancerARNs,omitempty"`
-	VPCID            *string   `json:"vpcID,omitempty"`
+	HealthCheckProtocol *string   `json:"healthCheckProtocol,omitempty"`
+	LoadBalancerARNs    []*string `json:"loadBalancerARNs,omitempty"`
+	Port                *int64    `json:"port,omitempty"`
+	Protocol            *string   `json:"protocol,omitempty"`
+	TargetGroupARN      *string   `json:"targetGroupARN,omitempty"`
+	VPCID               *string   `json:"vpcID,omitempty"`
+}
+
+// Information about the target group stickiness for a rule.
+type TargetGroupStickinessConfig struct {
+	DurationSeconds *int64 `json:"durationSeconds,omitempty"`
+	Enabled         *bool  `json:"enabled,omitempty"`
+}
+
+// Information about how traffic will be distributed between multiple target
+// groups in a forward rule.
+type TargetGroupTuple struct {
+	TargetGroupARN *string `json:"targetGroupARN,omitempty"`
+	Weight         *int64  `json:"weight,omitempty"`
+}
+
+// Information about a trust store.
+type TrustStore struct {
+	TrustStoreARN *string `json:"trustStoreARN,omitempty"`
+}
+
+// Information about a revocation file in use by a trust store.
+type TrustStoreRevocation struct {
+	TrustStoreARN *string `json:"trustStoreARN,omitempty"`
 }

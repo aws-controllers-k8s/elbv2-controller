@@ -39,6 +39,7 @@ import (
 	svcresource "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource"
 	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
 
+	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/listener"
 	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/load_balancer"
 
 	"github.com/aws-controllers-k8s/elbv2-controller/pkg/version"

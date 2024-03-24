@@ -41,3 +41,15 @@ class ELBValidator:
         
     def listener_exists(self, arn):
         return self.get_listener(arn) is not None
+    
+    def get_target_group(self, name):
+        try:
+            response = self.elbv2_client.describe_target_groups(Names=[name])
+            return response['TargetGroups'][0]
+        except Exception:
+            return None
+        
+    def target_group_exists(self, name):
+        return self.get_target_group(name) is not None
+    
+

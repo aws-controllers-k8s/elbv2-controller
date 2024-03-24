@@ -41,6 +41,7 @@ import (
 
 	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/listener"
 	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/load_balancer"
+	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/target_group"
 
 	"github.com/aws-controllers-k8s/elbv2-controller/pkg/version"
 )

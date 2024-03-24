@@ -3,7 +3,7 @@ ignore:
   # Listener
   # LoadBalancer
   - Rule
-  - TargetGroup
+  # TargetGroup
   - TrustStore
   field_paths:
   - DescribeLoadBalancersOutput.NextMarker
@@ -36,6 +36,21 @@ operations:
     - Update
     resource_name: Listener
     output_wrapper_field_path: Listeners
+  DescribeTargetGroups:
+    operation_type:
+    - ReadMany
+    resource_name: TargetGroup
+    output_wrapper_field_path: TargetGroups
+  CreateTargetGroup:
+    operation_type:
+    - Create
+    resource_name: TargetGroup
+    output_wrapper_field_path: TargetGroups
+  ModifyTargetGroup:
+    operation_type:
+    - Update
+    resource_name: TargetGroup
+    output_wrapper_field_path: TargetGroups
 resources:
   LoadBalancer:
     fields:
@@ -98,17 +113,26 @@ resources:
       - InvalidParameter
     tags:
       ignore: true
-    renames:
-      operations:
-        DescribeListeners:
-          output_fields:
-            ListenerName: Name
-        CreateListener:
-          output_fields:
-            ListenerName: Name
-        ModifyListener:
-          output_fields:
-            ListenerName: Name
     hooks:
       sdk_read_many_post_build_request:
-        template_path: hooks/listener/sdk_read_many_post_build_request.go.tpl 
+        template_path: hooks/listener/sdk_read_many_post_build_request.go.tpl
+  TargetGroup:
+    fields:
+      Name:
+        is_required: true
+    exceptions:
+      errors:
+        404:
+          code: TargetGroupNotFound
+      terminal_codes:
+      - InvalidConfigurationRequest
+    tags:
+      ignore: true
+    renames:
+      operations:
+        DescribeTargetGroups:
+          output_fields:
+            TargetGroupName: Name
+        CreateTargetGroup:
+          output_fields:
+            TargetGroupName: Name

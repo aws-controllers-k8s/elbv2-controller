@@ -186,6 +186,14 @@ type LoadBalancer_SDK struct {
 	VPCID *string            `json:"vpcID,omitempty"`
 }
 
+// The codes to use when checking for a successful response from a target. If
+// the protocol version is gRPC, these are gRPC codes. Otherwise, these are
+// HTTP codes.
+type Matcher struct {
+	GRPCCode *string `json:"grpcCode,omitempty"`
+	HTTPCode *string `json:"httpCode,omitempty"`
+}
+
 // Information about the mutual authentication attributes of a listener.
 type MutualAuthenticationAttributes struct {
 	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
@@ -258,16 +266,6 @@ type TargetDescription struct {
 	Port             *int64  `json:"port,omitempty"`
 }
 
-// Information about a target group.
-type TargetGroup struct {
-	HealthCheckProtocol *string   `json:"healthCheckProtocol,omitempty"`
-	LoadBalancerARNs    []*string `json:"loadBalancerARNs,omitempty"`
-	Port                *int64    `json:"port,omitempty"`
-	Protocol            *string   `json:"protocol,omitempty"`
-	TargetGroupARN      *string   `json:"targetGroupARN,omitempty"`
-	VPCID               *string   `json:"vpcID,omitempty"`
-}
-
 // Information about the target group stickiness for a rule.
 type TargetGroupStickinessConfig struct {
 	DurationSeconds *int64 `json:"durationSeconds,omitempty"`
@@ -279,6 +277,36 @@ type TargetGroupStickinessConfig struct {
 type TargetGroupTuple struct {
 	TargetGroupARN *string `json:"targetGroupARN,omitempty"`
 	Weight         *int64  `json:"weight,omitempty"`
+}
+
+// Information about a target group.
+type TargetGroup_SDK struct {
+	HealthCheckEnabled         *bool     `json:"healthCheckEnabled,omitempty"`
+	HealthCheckIntervalSeconds *int64    `json:"healthCheckIntervalSeconds,omitempty"`
+	HealthCheckPath            *string   `json:"healthCheckPath,omitempty"`
+	HealthCheckPort            *string   `json:"healthCheckPort,omitempty"`
+	HealthCheckProtocol        *string   `json:"healthCheckProtocol,omitempty"`
+	HealthCheckTimeoutSeconds  *int64    `json:"healthCheckTimeoutSeconds,omitempty"`
+	HealthyThresholdCount      *int64    `json:"healthyThresholdCount,omitempty"`
+	IPAddressType              *string   `json:"ipAddressType,omitempty"`
+	LoadBalancerARNs           []*string `json:"loadBalancerARNs,omitempty"`
+	// The codes to use when checking for a successful response from a target. If
+	// the protocol version is gRPC, these are gRPC codes. Otherwise, these are
+	// HTTP codes.
+	Matcher                 *Matcher `json:"matcher,omitempty"`
+	Port                    *int64   `json:"port,omitempty"`
+	Protocol                *string  `json:"protocol,omitempty"`
+	ProtocolVersion         *string  `json:"protocolVersion,omitempty"`
+	TargetGroupARN          *string  `json:"targetGroupARN,omitempty"`
+	TargetGroupName         *string  `json:"targetGroupName,omitempty"`
+	TargetType              *string  `json:"targetType,omitempty"`
+	UnhealthyThresholdCount *int64   `json:"unhealthyThresholdCount,omitempty"`
+	VPCID                   *string  `json:"vpcID,omitempty"`
+}
+
+// Information about the health of a target.
+type TargetHealthDescription struct {
+	HealthCheckPort *string `json:"healthCheckPort,omitempty"`
 }
 
 // Information about a trust store.

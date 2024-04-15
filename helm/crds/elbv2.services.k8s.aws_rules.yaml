@@ -143,6 +143,18 @@ spec:
                             properties:
                               targetGroupARN:
                                 type: string
+                              targetGroupRef:
+                                description: Reference field for TargetGroupARN
+                                properties:
+                                  from:
+                                    description: |-
+                                      AWSResourceReference provides all the values necessary to reference another
+                                      k8s resource for finding the identifier(Id/ARN/Name)
+                                    properties:
+                                      name:
+                                        type: string
+                                    type: object
+                                type: object
                               weight:
                                 format: int64
                                 type: integer

@@ -146,7 +146,7 @@ func (rm *resourceManager) resolveReferenceForSecurityGroups(
 			if ko.Spec.SecurityGroups == nil {
 				ko.Spec.SecurityGroups = make([]*string, 0, 1)
 			}
-			ko.Spec.SecurityGroups = append(ko.Spec.SecurityGroups, (*string)(obj.Status.ACKResourceMetadata.ARN))
+			ko.Spec.SecurityGroups = append(ko.Spec.SecurityGroups, (*string)(obj.Status.ID))
 		}
 	}
 
@@ -195,11 +195,11 @@ func getReferencedResourceState_SecurityGroup(
 			"SecurityGroup",
 			namespace, name)
 	}
-	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+	if obj.Status.ID == nil {
 		return ackerr.ResourceReferenceMissingTargetFieldFor(
 			"SecurityGroup",
 			namespace, name,
-			"Status.ACKResourceMetadata.ARN")
+			"Status.ID")
 	}
 	return nil
 }
@@ -225,7 +225,7 @@ func (rm *resourceManager) resolveReferenceForSubnetMappings_SubnetID(
 			if err := getReferencedResourceState_Subnet(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
 				return hasReferences, err
 			}
-			ko.Spec.SubnetMappings[f0idx].SubnetID = (*string)(obj.Status.ACKResourceMetadata.ARN)
+			ko.Spec.SubnetMappings[f0idx].SubnetID = (*string)(obj.Status.SubnetID)
 		}
 	}
 
@@ -274,11 +274,11 @@ func getReferencedResourceState_Subnet(
 			"Subnet",
 			namespace, name)
 	}
-	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+	if obj.Status.SubnetID == nil {
 		return ackerr.ResourceReferenceMissingTargetFieldFor(
 			"Subnet",
 			namespace, name,
-			"Status.ACKResourceMetadata.ARN")
+			"Status.SubnetID")
 	}
 	return nil
 }
@@ -307,7 +307,7 @@ func (rm *resourceManager) resolveReferenceForSubnets(
 			if ko.Spec.Subnets == nil {
 				ko.Spec.Subnets = make([]*string, 0, 1)
 			}
-			ko.Spec.Subnets = append(ko.Spec.Subnets, (*string)(obj.Status.ACKResourceMetadata.ARN))
+			ko.Spec.Subnets = append(ko.Spec.Subnets, (*string)(obj.Status.SubnetID))
 		}
 	}
 

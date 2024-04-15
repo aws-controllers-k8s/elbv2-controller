@@ -2042,6 +2042,11 @@ func (in *TargetGroupTuple) DeepCopyInto(out *TargetGroupTuple) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.TargetGroupRef != nil {
+		in, out := &in.TargetGroupRef, &out.TargetGroupRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Weight != nil {
 		in, out := &in.Weight, &out.Weight
 		*out = new(int64)

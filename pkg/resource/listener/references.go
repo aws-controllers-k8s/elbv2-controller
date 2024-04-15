@@ -38,6 +38,16 @@ func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) ack
 	ko := rm.concreteResource(res).ko.DeepCopy()
 
 	for f0idx, f0iter := range ko.Spec.DefaultActions {
+		if f0iter.ForwardConfig != nil {
+			for f1idx, f1iter := range f0iter.ForwardConfig.TargetGroups {
+				if f1iter.TargetGroupRef != nil {
+					ko.Spec.DefaultActions[f0idx].ForwardConfig.TargetGroups[f1idx].TargetGroupARN = nil
+				}
+			}
+		}
+	}
+
+	for f0idx, f0iter := range ko.Spec.DefaultActions {
 		if f0iter.TargetGroupRef != nil {
 			ko.Spec.DefaultActions[f0idx].TargetGroupARN = nil
 		}
@@ -67,6 +77,12 @@ func (rm *resourceManager) ResolveReferences(
 
 	resourceHasReferences := false
 	err := validateReferenceFields(ko)
+	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(ctx, apiReader, namespace, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
 	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_TargetGroupARN(ctx, apiReader, namespace, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
@@ -87,6 +103,16 @@ func (rm *resourceManager) ResolveReferences(
 func validateReferenceFields(ko *svcapitypes.Listener) error {
 
 	for _, f0iter := range ko.Spec.DefaultActions {
+		if f0iter.ForwardConfig != nil {
+			for _, f1iter := range f0iter.ForwardConfig.TargetGroups {
+				if f1iter.TargetGroupRef != nil && f1iter.TargetGroupARN != nil {
+					return ackerr.ResourceReferenceAndIDNotSupportedFor("DefaultActions.ForwardConfig.TargetGroups.TargetGroupARN", "DefaultActions.ForwardConfig.TargetGroups.TargetGroupRef")
+				}
+			}
+		}
+	}
+
+	for _, f0iter := range ko.Spec.DefaultActions {
 		if f0iter.TargetGroupRef != nil && f0iter.TargetGroupARN != nil {
 			return ackerr.ResourceReferenceAndIDNotSupportedFor("DefaultActions.TargetGroupARN", "DefaultActions.TargetGroupRef")
 		}
@@ -101,28 +127,32 @@ func validateReferenceFields(ko *svcapitypes.Listener) error {
 	return nil
 }
 
-// resolveReferenceForDefaultActions_TargetGroupARN reads the resource referenced
-// from DefaultActions.TargetGroupRef field and sets the DefaultActions.TargetGroupARN
+// resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN reads the resource referenced
+// from DefaultActions.ForwardConfig.TargetGroups.TargetGroupRef field and sets the DefaultActions.ForwardConfig.TargetGroups.TargetGroupARN
 // from referenced resource. Returns a boolean indicating whether a reference
 // contains references, or an error
-func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
+func (rm *resourceManager) resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(
 	ctx context.Context,
 	apiReader client.Reader,
 	namespace string,
 	ko *svcapitypes.Listener,
 ) (hasReferences bool, err error) {
 	for f0idx, f0iter := range ko.Spec.DefaultActions {
-		if f0iter.TargetGroupRef != nil && f0iter.TargetGroupRef.From != nil {
-			hasReferences = true
-			arr := f0iter.TargetGroupRef.From
-			if arr.Name == nil || *arr.Name == "" {
-				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.TargetGroupRef")
+		if f0iter.ForwardConfig != nil {
+			for f1idx, f1iter := range f0iter.ForwardConfig.TargetGroups {
+				if f1iter.TargetGroupRef != nil && f1iter.TargetGroupRef.From != nil {
+					hasReferences = true
+					arr := f1iter.TargetGroupRef.From
+					if arr.Name == nil || *arr.Name == "" {
+						return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.ForwardConfig.TargetGroups.TargetGroupRef")
+					}
+					obj := &svcapitypes.TargetGroup{}
+					if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+						return hasReferences, err
+					}
+					ko.Spec.DefaultActions[f0idx].ForwardConfig.TargetGroups[f1idx].TargetGroupARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+				}
 			}
-			obj := &svcapitypes.TargetGroup{}
-			if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
-				return hasReferences, err
-			}
-			ko.Spec.DefaultActions[f0idx].TargetGroupARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
 		}
 	}
 
@@ -178,6 +208,34 @@ func getReferencedResourceState_TargetGroup(
 			"Status.ACKResourceMetadata.ARN")
 	}
 	return nil
+}
+
+// resolveReferenceForDefaultActions_TargetGroupARN reads the resource referenced
+// from DefaultActions.TargetGroupRef field and sets the DefaultActions.TargetGroupARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	namespace string,
+	ko *svcapitypes.Listener,
+) (hasReferences bool, err error) {
+	for f0idx, f0iter := range ko.Spec.DefaultActions {
+		if f0iter.TargetGroupRef != nil && f0iter.TargetGroupRef.From != nil {
+			hasReferences = true
+			arr := f0iter.TargetGroupRef.From
+			if arr.Name == nil || *arr.Name == "" {
+				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.TargetGroupRef")
+			}
+			obj := &svcapitypes.TargetGroup{}
+			if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+				return hasReferences, err
+			}
+			ko.Spec.DefaultActions[f0idx].TargetGroupARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+		}
+	}
+
+	return hasReferences, nil
 }
 
 // resolveReferenceForLoadBalancerARN reads the resource referenced

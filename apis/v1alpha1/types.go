@@ -386,7 +386,9 @@ type TargetGroupStickinessConfig struct {
 // groups in a forward rule.
 type TargetGroupTuple struct {
 	TargetGroupARN *string `json:"targetGroupARN,omitempty"`
-	Weight         *int64  `json:"weight,omitempty"`
+	// Reference field for TargetGroupARN
+	TargetGroupRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"targetGroupRef,omitempty"`
+	Weight         *int64                                   `json:"weight,omitempty"`
 }
 
 // Information about a target group.

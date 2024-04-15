@@ -83,17 +83,17 @@ resources:
       SecurityGroups:
         references:
           resource: SecurityGroup
-          path: Status.ACKResourceMetadata.ARN
+          path: Status.ID
           service_name: ec2
       Subnets:
         references:
           resource: Subnet
-          path: Status.ACKResourceMetadata.ARN
+          path: Status.SubnetID
           service_name: ec2
       SubnetMappings.SubnetID:
         references:
           resource: Subnet
-          path: Status.ACKResourceMetadata.ARN
+          path: Status.SubnetID
           service_name: ec2
     update_operation:
       custom_method_name: customUpdateLoadBalancer
@@ -121,6 +121,10 @@ resources:
   Listener:
     fields:
       DefaultActions.TargetGroupARN:
+        references:
+          resource: TargetGroup
+          path: Status.ACKResourceMetadata.ARN
+      DefaultActions.ForwardConfig.TargetGroups.TargetGroupARN:
         references:
           resource: TargetGroup
           path: Status.ACKResourceMetadata.ARN

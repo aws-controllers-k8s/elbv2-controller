@@ -72,24 +72,23 @@ func (rm *resourceManager) ResolveReferences(
 	apiReader client.Reader,
 	res acktypes.AWSResource,
 ) (acktypes.AWSResource, bool, error) {
-	namespace := res.MetaObject().GetNamespace()
 	ko := rm.concreteResource(res).ko
 
 	resourceHasReferences := false
 	err := validateReferenceFields(ko)
-	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(ctx, apiReader, namespace, ko); err != nil {
+	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
 	}
 
-	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_TargetGroupARN(ctx, apiReader, namespace, ko); err != nil {
+	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_TargetGroupARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
 	}
 
-	if fieldHasReferences, err := rm.resolveReferenceForLoadBalancerARN(ctx, apiReader, namespace, ko); err != nil {
+	if fieldHasReferences, err := rm.resolveReferenceForLoadBalancerARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
@@ -134,7 +133,6 @@ func validateReferenceFields(ko *svcapitypes.Listener) error {
 func (rm *resourceManager) resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(
 	ctx context.Context,
 	apiReader client.Reader,
-	namespace string,
 	ko *svcapitypes.Listener,
 ) (hasReferences bool, err error) {
 	for f0idx, f0iter := range ko.Spec.DefaultActions {
@@ -145,6 +143,10 @@ func (rm *resourceManager) resolveReferenceForDefaultActions_ForwardConfig_Targe
 					arr := f1iter.TargetGroupRef.From
 					if arr.Name == nil || *arr.Name == "" {
 						return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.ForwardConfig.TargetGroups.TargetGroupRef")
+					}
+					namespace := ko.ObjectMeta.GetNamespace()
+					if arr.Namespace != nil && *arr.Namespace != "" {
+						namespace = *arr.Namespace
 					}
 					obj := &svcapitypes.TargetGroup{}
 					if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
@@ -217,7 +219,6 @@ func getReferencedResourceState_TargetGroup(
 func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
 	ctx context.Context,
 	apiReader client.Reader,
-	namespace string,
 	ko *svcapitypes.Listener,
 ) (hasReferences bool, err error) {
 	for f0idx, f0iter := range ko.Spec.DefaultActions {
@@ -226,6 +227,10 @@ func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
 			arr := f0iter.TargetGroupRef.From
 			if arr.Name == nil || *arr.Name == "" {
 				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.TargetGroupRef")
+			}
+			namespace := ko.ObjectMeta.GetNamespace()
+			if arr.Namespace != nil && *arr.Namespace != "" {
+				namespace = *arr.Namespace
 			}
 			obj := &svcapitypes.TargetGroup{}
 			if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
@@ -245,7 +250,6 @@ func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
 func (rm *resourceManager) resolveReferenceForLoadBalancerARN(
 	ctx context.Context,
 	apiReader client.Reader,
-	namespace string,
 	ko *svcapitypes.Listener,
 ) (hasReferences bool, err error) {
 	if ko.Spec.LoadBalancerRef != nil && ko.Spec.LoadBalancerRef.From != nil {
@@ -253,6 +257,10 @@ func (rm *resourceManager) resolveReferenceForLoadBalancerARN(
 		arr := ko.Spec.LoadBalancerRef.From
 		if arr.Name == nil || *arr.Name == "" {
 			return hasReferences, fmt.Errorf("provided resource reference is nil or empty: LoadBalancerRef")
+		}
+		namespace := ko.ObjectMeta.GetNamespace()
+		if arr.Namespace != nil && *arr.Namespace != "" {
+			namespace = *arr.Namespace
 		}
 		obj := &svcapitypes.LoadBalancer{}
 		if err := getReferencedResourceState_LoadBalancer(ctx, apiReader, obj, *arr.Name, namespace); err != nil {

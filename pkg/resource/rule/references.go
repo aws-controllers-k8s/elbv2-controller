@@ -62,18 +62,17 @@ func (rm *resourceManager) ResolveReferences(
 	apiReader client.Reader,
 	res acktypes.AWSResource,
 ) (acktypes.AWSResource, bool, error) {
-	namespace := res.MetaObject().GetNamespace()
 	ko := rm.concreteResource(res).ko
 
 	resourceHasReferences := false
 	err := validateReferenceFields(ko)
-	if fieldHasReferences, err := rm.resolveReferenceForActions_TargetGroupARN(ctx, apiReader, namespace, ko); err != nil {
+	if fieldHasReferences, err := rm.resolveReferenceForActions_TargetGroupARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
 	}
 
-	if fieldHasReferences, err := rm.resolveReferenceForListenerARN(ctx, apiReader, namespace, ko); err != nil {
+	if fieldHasReferences, err := rm.resolveReferenceForListenerARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
@@ -108,7 +107,6 @@ func validateReferenceFields(ko *svcapitypes.Rule) error {
 func (rm *resourceManager) resolveReferenceForActions_TargetGroupARN(
 	ctx context.Context,
 	apiReader client.Reader,
-	namespace string,
 	ko *svcapitypes.Rule,
 ) (hasReferences bool, err error) {
 	for f0idx, f0iter := range ko.Spec.Actions {
@@ -117,6 +115,10 @@ func (rm *resourceManager) resolveReferenceForActions_TargetGroupARN(
 			arr := f0iter.TargetGroupRef.From
 			if arr.Name == nil || *arr.Name == "" {
 				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: Actions.TargetGroupRef")
+			}
+			namespace := ko.ObjectMeta.GetNamespace()
+			if arr.Namespace != nil && *arr.Namespace != "" {
+				namespace = *arr.Namespace
 			}
 			obj := &svcapitypes.TargetGroup{}
 			if err := getReferencedResourceState_TargetGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
@@ -187,7 +189,6 @@ func getReferencedResourceState_TargetGroup(
 func (rm *resourceManager) resolveReferenceForListenerARN(
 	ctx context.Context,
 	apiReader client.Reader,
-	namespace string,
 	ko *svcapitypes.Rule,
 ) (hasReferences bool, err error) {
 	if ko.Spec.ListenerRef != nil && ko.Spec.ListenerRef.From != nil {
@@ -195,6 +196,10 @@ func (rm *resourceManager) resolveReferenceForListenerARN(
 		arr := ko.Spec.ListenerRef.From
 		if arr.Name == nil || *arr.Name == "" {
 			return hasReferences, fmt.Errorf("provided resource reference is nil or empty: ListenerRef")
+		}
+		namespace := ko.ObjectMeta.GetNamespace()
+		if arr.Namespace != nil && *arr.Namespace != "" {
+			namespace = *arr.Namespace
 		}
 		obj := &svcapitypes.Listener{}
 		if err := getReferencedResourceState_Listener(ctx, apiReader, obj, *arr.Name, namespace); err != nil {

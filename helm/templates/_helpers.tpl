@@ -55,6 +55,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - secrets
   verbs:
   - get
   - list
@@ -69,52 +70,13 @@ rules:
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
   - ec2.services.k8s.aws
   resources:
   - securitygroups
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - securitygroups/status
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - subnets
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - subnets/status
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - vpcs
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ec2.services.k8s.aws
-  resources:
   - vpcs/status
   verbs:
   - get
@@ -123,65 +85,8 @@ rules:
   - elbv2.services.k8s.aws
   resources:
   - listeners
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
-  - listeners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
   - loadbalancers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
-  - loadbalancers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
   - rules
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
-  - rules/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - elbv2.services.k8s.aws
-  resources:
   - targetgroups
   verbs:
   - create
@@ -194,6 +99,9 @@ rules:
 - apiGroups:
   - elbv2.services.k8s.aws
   resources:
+  - listeners/status
+  - loadbalancers/status
+  - rules/status
   - targetgroups/status
   verbs:
   - get
@@ -203,25 +111,6 @@ rules:
   - services.k8s.aws
   resources:
   - adoptedresources
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - services.k8s.aws
-  resources:
-  - adoptedresources/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - services.k8s.aws
-  resources:
   - fieldexports
   verbs:
   - create
@@ -234,6 +123,7 @@ rules:
 - apiGroups:
   - services.k8s.aws
   resources:
+  - adoptedresources/status
   - fieldexports/status
   verbs:
   - get

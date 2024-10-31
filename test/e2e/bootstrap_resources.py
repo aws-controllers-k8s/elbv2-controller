@@ -18,11 +18,14 @@ for them.
 from dataclasses import dataclass
 from acktest.bootstrapping import Resources
 from acktest.bootstrapping.vpc import VPC
+from acktest.bootstrapping.function import Function
 from e2e import bootstrap_directory
 
 @dataclass
 class BootstrapResources(Resources):
     ACKVPC: VPC
+    Function1: Function
+    Function2: Function
 
 _bootstrap_resources = None
 

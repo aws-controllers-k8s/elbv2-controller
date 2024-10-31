@@ -16,15 +16,24 @@ import logging
 
 from acktest.bootstrapping import BootstrapFailureException, Resources
 from acktest.bootstrapping.vpc import VPC
+from acktest.bootstrapping.function import Function
+from acktest.aws.identity import get_region, get_account_id
 from e2e import bootstrap_directory
 from e2e.bootstrap_resources import BootstrapResources
 
 
+
 def service_bootstrap() -> Resources:
     logging.getLogger().setLevel(logging.INFO)
+    aws_region = get_region()
+    account_id = get_account_id()
+    code_uri1=f"{account_id}.dkr.ecr.{aws_region}.amazonaws.com/ack-e2e-testing-elbv2-controller:v1"
+    code_uri2=f"{account_id}.dkr.ecr.{aws_region}.amazonaws.com/ack-e2e-testing-elbv2-controller:v2"
 
     resources = BootstrapResources(
         ACKVPC=VPC(name_prefix="ack-elb-vpc", num_public_subnet=2, num_private_subnet=2),
+        Function1=Function(name_prefix="ack-elb-function-1", code_uri=code_uri1, service="elasticloadbalancing"),
+        Function2=Function(name_prefix="ack-elb-function-2", code_uri=code_uri2, service="elasticloadbalancing")
     )
 
     try:

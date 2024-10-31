@@ -164,6 +164,21 @@ resources:
           resource: VPC
           path: Status.VPCID
           service_name: ec2
+      Targets:
+        from:
+          operation: RegisterTargets
+          path: Targets
+        compare:
+          is_ignored: true
+    hooks:
+      delta_pre_compare:
+        code: customCompare(delta, a, b)
+      sdk_create_post_set_output:
+        template_path: hooks/target_group/sdk_create_post_set_output.go.tpl
+      sdk_read_many_post_set_output:
+        template_path: hooks/target_group/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/target_group/sdk_update_pre_build_request.go.tpl
     exceptions:
       errors:
         404:

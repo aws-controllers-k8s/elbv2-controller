@@ -48,6 +48,12 @@ class ELBValidator:
             return response['TargetGroups'][0]
         except Exception:
             return None
+    def get_registered_targets(self, arn):
+        try:
+            response = self.elbv2_client.describe_target_health(TargetGroupArn=arn)
+            return response['TargetHealthDescriptions']
+        except Exception:
+            return None
         
     def target_group_exists(self, name):
         return self.get_target_group(name) is not None

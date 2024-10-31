@@ -27,8 +27,8 @@ from e2e.tests.helper import ELBValidator
 
 RESOURCE_PLURAL = "targetgroups"
 
-CREATE_WAIT_AFTER_SECONDS = 10
-UPDATE_WAIT_AFTER_SECONDS = 10
+CREATE_WAIT_AFTER_SECONDS = 30
+UPDATE_WAIT_AFTER_SECONDS = 20
 DELETE_WAIT_AFTER_SECONDS = 10
 
 @pytest.fixture(scope="module")
@@ -78,12 +78,28 @@ class TestTargetGroups:
         (ref, cr, tg_name) = simple_target_group
 
         validator = ELBValidator(elbv2_client)
+        cr = k8s.get_resource(ref)
         assert validator.target_group_exists(tg_name)
-
+        assert cr is not None
+        assert "spec" in cr
+        assert "targets" in cr["spec"]
+        assert len(cr['spec']["targets"]) == 1
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        resource_arn = cr['status']['ackResourceMetadata']['arn']
+        targets = validator.get_registered_targets(resource_arn)
+        assert len(targets) == 1
+        assert targets[0]["Target"]["Id"] == REPLACEMENT_VALUES["FUNCTION_ARN_1"]
         # Update healthyThresholdCount
         updates = {
             "spec": {
                 "healthyThresholdCount": 10,
+                "targets": [
+                    {
+                        "id": REPLACEMENT_VALUES["FUNCTION_ARN_2"],
+                    }
+                ]
             },
         }
         k8s.patch_custom_resource(ref, updates)
@@ -91,3 +107,17 @@ class TestTargetGroups:
 
         tg_healthy_threshold_count = validator.get_target_group(tg_name)["HealthyThresholdCount"]
         assert tg_healthy_threshold_count == 10
+        targets = validator.get_registered_targets(resource_arn)
+        assert len(targets) == 1
+        assert targets[0]["Target"]["Id"] == REPLACEMENT_VALUES["FUNCTION_ARN_2"]
+
+        updates = {
+            "spec": {
+                "targets": []
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        targets = validator.get_registered_targets(resource_arn)
+        assert len(targets) == 0

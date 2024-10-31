@@ -8,7 +8,7 @@ roleRef:
   name: ack-namespaces-cache-elbv2-controller
 subjects:
 - kind: ServiceAccount
-  name: ack-elbv2-controller
+  name: {{ include "ack-elbv2-controller.service-account.name" . }}
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -22,5 +22,5 @@ roleRef:
   name: ack-configmaps-cache-elbv2-controller
 subjects:
 - kind: ServiceAccount
-  name: ack-elbv2-controller
+  name: {{ include "ack-elbv2-controller.service-account.name" . }}
   namespace: {{ .Release.Namespace }}

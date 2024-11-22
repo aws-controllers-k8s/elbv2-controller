@@ -42,6 +42,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customCompare(delta, a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.HealthCheckEnabled, b.ko.Spec.HealthCheckEnabled) {
 		delta.Add("Spec.HealthCheckEnabled", a.ko.Spec.HealthCheckEnabled, b.ko.Spec.HealthCheckEnabled)

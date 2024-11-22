@@ -4,7 +4,6 @@ metadata:
   name: $TARGET_GROUP_NAME
 spec:
   name: $TARGET_GROUP_NAME
-  protocol: HTTP
-  port: 80
-  targetType: ip
-  vpcID: $VPC_ID
+  targetType: lambda
+  targets:
+  - id: $FUNCTION_ARN_1

@@ -1780,6 +1780,11 @@ func (in *TargetDescription) DeepCopyInto(out *TargetDescription) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ID != nil {
+		in, out := &in.ID, &out.ID
+		*out = new(string)
+		**out = **in
+	}
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
 		*out = new(int64)
@@ -1939,6 +1944,17 @@ func (in *TargetGroupSpec) DeepCopyInto(out *TargetGroupSpec) {
 		in, out := &in.TargetType, &out.TargetType
 		*out = new(string)
 		**out = **in
+	}
+	if in.Targets != nil {
+		in, out := &in.Targets, &out.Targets
+		*out = make([]*TargetDescription, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(TargetDescription)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 	if in.UnhealthyThresholdCount != nil {
 		in, out := &in.UnhealthyThresholdCount, &out.UnhealthyThresholdCount
@@ -2182,6 +2198,11 @@ func (in *TargetHealthDescription) DeepCopyInto(out *TargetHealthDescription) {
 		in, out := &in.HealthCheckPort, &out.HealthCheckPort
 		*out = new(string)
 		**out = **in
+	}
+	if in.Target != nil {
+		in, out := &in.Target, &out.Target
+		*out = new(TargetDescription)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

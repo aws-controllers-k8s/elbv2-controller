@@ -19,4 +19,6 @@ REPLACEMENT_VALUES = {
     "PUBLIC_SUBNET_1": get_bootstrap_resources().ACKVPC.public_subnets.subnet_ids[0],
     "PUBLIC_SUBNET_2": get_bootstrap_resources().ACKVPC.public_subnets.subnet_ids[1],
     "VPC_ID": get_bootstrap_resources().ACKVPC.vpc_id,
+    "FUNCTION_ARN_1": get_bootstrap_resources().Function1.arn,
+    "FUNCTION_ARN_2": get_bootstrap_resources().Function2.arn
 }

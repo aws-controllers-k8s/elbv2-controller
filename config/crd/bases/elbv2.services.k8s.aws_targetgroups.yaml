@@ -179,6 +179,20 @@ spec:
 
                      * alb - Register a single Application Load Balancer as a target.
                 type: string
+              targets:
+                description: The targets.
+                items:
+                  description: Information about a target.
+                  properties:
+                    availabilityZone:
+                      type: string
+                    id:
+                      type: string
+                    port:
+                      format: int64
+                      type: integer
+                  type: object
+                type: array
               unhealthyThresholdCount:
                 description: |-
                   The number of consecutive health check failures required before considering

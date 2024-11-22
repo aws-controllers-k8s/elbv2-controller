@@ -373,6 +373,7 @@ type TagDescription struct {
 // Information about a target.
 type TargetDescription struct {
 	AvailabilityZone *string `json:"availabilityZone,omitempty"`
+	ID               *string `json:"id,omitempty"`
 	Port             *int64  `json:"port,omitempty"`
 }
 
@@ -419,6 +420,8 @@ type TargetGroup_SDK struct {
 // Information about the health of a target.
 type TargetHealthDescription struct {
 	HealthCheckPort *string `json:"healthCheckPort,omitempty"`
+	// Information about a target.
+	Target *TargetDescription `json:"target,omitempty"`
 }
 
 // Information about a trust store.

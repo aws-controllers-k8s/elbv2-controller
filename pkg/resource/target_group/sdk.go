@@ -201,6 +201,13 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	err = rm.describeTargets(ctx, &resource{ko})
+	if err != nil {
+		return nil, err
+	}
+
+	rm.setStatusDefaults(ko)
+
 	return &resource{ko}, nil
 }
 
@@ -373,6 +380,10 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	if ko.Spec.Targets != nil {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -470,6 +481,26 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+	if delta.DifferentAt("Spec.Targets") {
+		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
+		arn := (string)(*latest.ko.Status.ACKResourceMetadata.ARN)
+		if len(removed) > 0 {
+			err = rm.deregisterTargets(ctx, arn, removed)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if len(added) > 0 {
+			err = rm.registerTargets(ctx, arn, added)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Targets") {
+		return desired, nil
+	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err

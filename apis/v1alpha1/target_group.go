@@ -117,6 +117,8 @@ type TargetGroupSpec struct {
 	//
 	//   - alb - Register a single Application Load Balancer as a target.
 	TargetType *string `json:"targetType,omitempty"`
+	// The targets.
+	Targets []*TargetDescription `json:"targets,omitempty"`
 	// The number of consecutive health check failures required before considering
 	// a target unhealthy. The range is 2-10. If the target group protocol is TCP,
 	// TCP_UDP, UDP, TLS, HTTP or HTTPS, the default is 2. For target groups with

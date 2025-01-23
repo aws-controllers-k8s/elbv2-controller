@@ -381,7 +381,7 @@ func (rm *resourceManager) sdkCreate(
 
 	rm.setStatusDefaults(ko)
 	if ko.Spec.Targets != nil {
-		return nil, ackrequeue.NeededAfter(fmt.Errorf("requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
 	}
 
 	return &resource{ko}, nil

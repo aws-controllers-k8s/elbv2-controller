@@ -230,8 +230,8 @@ spec:
                     Each rule can optionally include up to one of each of the following conditions:
                     http-request-method, host-header, path-pattern, and source-ip. Each rule
                     can also optionally include one or more of each of the following conditions:
-                    http-header and query-string. Note that the value for a condition cannot
-                    be empty.
+                    http-header and query-string. Note that the value for a condition can't be
+                    empty.
 
                     For more information, see Quotas for your Application Load Balancers (https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html).
                   properties:

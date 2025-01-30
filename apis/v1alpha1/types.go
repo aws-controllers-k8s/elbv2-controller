@@ -110,6 +110,11 @@ type AvailabilityZone struct {
 	ZoneName              *string                `json:"zoneName,omitempty"`
 }
 
+// The status of a capacity reservation.
+type CapacityReservationStatus struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
 // Information about an SSL server certificate.
 type Certificate struct {
 	CertificateARN *string `json:"certificateARN,omitempty"`
@@ -282,8 +287,8 @@ type RedirectActionConfig struct {
 // Each rule can optionally include up to one of each of the following conditions:
 // http-request-method, host-header, path-pattern, and source-ip. Each rule
 // can also optionally include one or more of each of the following conditions:
-// http-header and query-string. Note that the value for a condition cannot
-// be empty.
+// http-header and query-string. Note that the value for a condition can't be
+// empty.
 //
 // For more information, see Quotas for your Application Load Balancers (https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html).
 type RuleCondition struct {
@@ -432,4 +437,9 @@ type TrustStore struct {
 // Information about a revocation file in use by a trust store.
 type TrustStoreRevocation struct {
 	TrustStoreARN *string `json:"trustStoreARN,omitempty"`
+}
+
+// The capacity reservation status for each availability zone.
+type ZonalCapacityReservationState struct {
+	AvailabilityZone *string `json:"availabilityZone,omitempty"`
 }

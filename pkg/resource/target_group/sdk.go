@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.ELBV2{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.TargetGroup{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -73,10 +76,11 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 	var resp *svcsdk.DescribeTargetGroupsOutput
-	resp, err = rm.sdkapi.DescribeTargetGroupsWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeTargetGroups(ctx, input)
 	rm.metrics.RecordAPICall("READ_MANY", "DescribeTargetGroups", err)
 	if err != nil {
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "TargetGroupNotFound" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "TargetGroupNotFound" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -94,7 +98,8 @@ func (rm *resourceManager) sdkFind(
 			ko.Spec.HealthCheckEnabled = nil
 		}
 		if elem.HealthCheckIntervalSeconds != nil {
-			ko.Spec.HealthCheckIntervalSeconds = elem.HealthCheckIntervalSeconds
+			healthCheckIntervalSecondsCopy := int64(*elem.HealthCheckIntervalSeconds)
+			ko.Spec.HealthCheckIntervalSeconds = &healthCheckIntervalSecondsCopy
 		} else {
 			ko.Spec.HealthCheckIntervalSeconds = nil
 		}
@@ -108,34 +113,30 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Spec.HealthCheckPort = nil
 		}
-		if elem.HealthCheckProtocol != nil {
-			ko.Spec.HealthCheckProtocol = elem.HealthCheckProtocol
+		if elem.HealthCheckProtocol != "" {
+			ko.Spec.HealthCheckProtocol = aws.String(string(elem.HealthCheckProtocol))
 		} else {
 			ko.Spec.HealthCheckProtocol = nil
 		}
 		if elem.HealthCheckTimeoutSeconds != nil {
-			ko.Spec.HealthCheckTimeoutSeconds = elem.HealthCheckTimeoutSeconds
+			healthCheckTimeoutSecondsCopy := int64(*elem.HealthCheckTimeoutSeconds)
+			ko.Spec.HealthCheckTimeoutSeconds = &healthCheckTimeoutSecondsCopy
 		} else {
 			ko.Spec.HealthCheckTimeoutSeconds = nil
 		}
 		if elem.HealthyThresholdCount != nil {
-			ko.Spec.HealthyThresholdCount = elem.HealthyThresholdCount
+			healthyThresholdCountCopy := int64(*elem.HealthyThresholdCount)
+			ko.Spec.HealthyThresholdCount = &healthyThresholdCountCopy
 		} else {
 			ko.Spec.HealthyThresholdCount = nil
 		}
-		if elem.IpAddressType != nil {
-			ko.Spec.IPAddressType = elem.IpAddressType
+		if elem.IpAddressType != "" {
+			ko.Spec.IPAddressType = aws.String(string(elem.IpAddressType))
 		} else {
 			ko.Spec.IPAddressType = nil
 		}
 		if elem.LoadBalancerArns != nil {
-			f8 := []*string{}
-			for _, f8iter := range elem.LoadBalancerArns {
-				var f8elem string
-				f8elem = *f8iter
-				f8 = append(f8, &f8elem)
-			}
-			ko.Status.LoadBalancerARNs = f8
+			ko.Status.LoadBalancerARNs = aws.StringSlice(elem.LoadBalancerArns)
 		} else {
 			ko.Status.LoadBalancerARNs = nil
 		}
@@ -152,12 +153,13 @@ func (rm *resourceManager) sdkFind(
 			ko.Spec.Matcher = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -178,13 +180,14 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Spec.Name = nil
 		}
-		if elem.TargetType != nil {
-			ko.Spec.TargetType = elem.TargetType
+		if elem.TargetType != "" {
+			ko.Spec.TargetType = aws.String(string(elem.TargetType))
 		} else {
 			ko.Spec.TargetType = nil
 		}
 		if elem.UnhealthyThresholdCount != nil {
-			ko.Spec.UnhealthyThresholdCount = elem.UnhealthyThresholdCount
+			unhealthyThresholdCountCopy := int64(*elem.UnhealthyThresholdCount)
+			ko.Spec.UnhealthyThresholdCount = &unhealthyThresholdCountCopy
 		} else {
 			ko.Spec.UnhealthyThresholdCount = nil
 		}
@@ -229,9 +232,9 @@ func (rm *resourceManager) newListRequestPayload(
 	res := &svcsdk.DescribeTargetGroupsInput{}
 
 	if r.ko.Spec.Name != nil {
-		f2 := []*string{}
-		f2 = append(f2, r.ko.Spec.Name)
-		res.SetNames(f2)
+		f2 := []string{}
+		f2 = append(f2, *r.ko.Spec.Name)
+		res.Names = f2
 	}
 
 	return res, nil
@@ -256,7 +259,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateTargetGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateTargetGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateTargetGroup(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateTargetGroup", err)
 	if err != nil {
 		return nil, err
@@ -273,7 +276,8 @@ func (rm *resourceManager) sdkCreate(
 			ko.Spec.HealthCheckEnabled = nil
 		}
 		if elem.HealthCheckIntervalSeconds != nil {
-			ko.Spec.HealthCheckIntervalSeconds = elem.HealthCheckIntervalSeconds
+			healthCheckIntervalSecondsCopy := int64(*elem.HealthCheckIntervalSeconds)
+			ko.Spec.HealthCheckIntervalSeconds = &healthCheckIntervalSecondsCopy
 		} else {
 			ko.Spec.HealthCheckIntervalSeconds = nil
 		}
@@ -287,34 +291,30 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Spec.HealthCheckPort = nil
 		}
-		if elem.HealthCheckProtocol != nil {
-			ko.Spec.HealthCheckProtocol = elem.HealthCheckProtocol
+		if elem.HealthCheckProtocol != "" {
+			ko.Spec.HealthCheckProtocol = aws.String(string(elem.HealthCheckProtocol))
 		} else {
 			ko.Spec.HealthCheckProtocol = nil
 		}
 		if elem.HealthCheckTimeoutSeconds != nil {
-			ko.Spec.HealthCheckTimeoutSeconds = elem.HealthCheckTimeoutSeconds
+			healthCheckTimeoutSecondsCopy := int64(*elem.HealthCheckTimeoutSeconds)
+			ko.Spec.HealthCheckTimeoutSeconds = &healthCheckTimeoutSecondsCopy
 		} else {
 			ko.Spec.HealthCheckTimeoutSeconds = nil
 		}
 		if elem.HealthyThresholdCount != nil {
-			ko.Spec.HealthyThresholdCount = elem.HealthyThresholdCount
+			healthyThresholdCountCopy := int64(*elem.HealthyThresholdCount)
+			ko.Spec.HealthyThresholdCount = &healthyThresholdCountCopy
 		} else {
 			ko.Spec.HealthyThresholdCount = nil
 		}
-		if elem.IpAddressType != nil {
-			ko.Spec.IPAddressType = elem.IpAddressType
+		if elem.IpAddressType != "" {
+			ko.Spec.IPAddressType = aws.String(string(elem.IpAddressType))
 		} else {
 			ko.Spec.IPAddressType = nil
 		}
 		if elem.LoadBalancerArns != nil {
-			f8 := []*string{}
-			for _, f8iter := range elem.LoadBalancerArns {
-				var f8elem string
-				f8elem = *f8iter
-				f8 = append(f8, &f8elem)
-			}
-			ko.Status.LoadBalancerARNs = f8
+			ko.Status.LoadBalancerARNs = aws.StringSlice(elem.LoadBalancerArns)
 		} else {
 			ko.Status.LoadBalancerARNs = nil
 		}
@@ -331,12 +331,13 @@ func (rm *resourceManager) sdkCreate(
 			ko.Spec.Matcher = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -357,13 +358,14 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Spec.Name = nil
 		}
-		if elem.TargetType != nil {
-			ko.Spec.TargetType = elem.TargetType
+		if elem.TargetType != "" {
+			ko.Spec.TargetType = aws.String(string(elem.TargetType))
 		} else {
 			ko.Spec.TargetType = nil
 		}
 		if elem.UnhealthyThresholdCount != nil {
-			ko.Spec.UnhealthyThresholdCount = elem.UnhealthyThresholdCount
+			unhealthyThresholdCountCopy := int64(*elem.UnhealthyThresholdCount)
+			ko.Spec.UnhealthyThresholdCount = &unhealthyThresholdCountCopy
 		} else {
 			ko.Spec.UnhealthyThresholdCount = nil
 		}
@@ -396,73 +398,98 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateTargetGroupInput{}
 
 	if r.ko.Spec.HealthCheckEnabled != nil {
-		res.SetHealthCheckEnabled(*r.ko.Spec.HealthCheckEnabled)
+		res.HealthCheckEnabled = r.ko.Spec.HealthCheckEnabled
 	}
 	if r.ko.Spec.HealthCheckIntervalSeconds != nil {
-		res.SetHealthCheckIntervalSeconds(*r.ko.Spec.HealthCheckIntervalSeconds)
+		healthCheckIntervalSecondsCopy0 := *r.ko.Spec.HealthCheckIntervalSeconds
+		if healthCheckIntervalSecondsCopy0 > math.MaxInt32 || healthCheckIntervalSecondsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthCheckIntervalSeconds is of type int32")
+		}
+		healthCheckIntervalSecondsCopy := int32(healthCheckIntervalSecondsCopy0)
+		res.HealthCheckIntervalSeconds = &healthCheckIntervalSecondsCopy
 	}
 	if r.ko.Spec.HealthCheckPath != nil {
-		res.SetHealthCheckPath(*r.ko.Spec.HealthCheckPath)
+		res.HealthCheckPath = r.ko.Spec.HealthCheckPath
 	}
 	if r.ko.Spec.HealthCheckPort != nil {
-		res.SetHealthCheckPort(*r.ko.Spec.HealthCheckPort)
+		res.HealthCheckPort = r.ko.Spec.HealthCheckPort
 	}
 	if r.ko.Spec.HealthCheckProtocol != nil {
-		res.SetHealthCheckProtocol(*r.ko.Spec.HealthCheckProtocol)
+		res.HealthCheckProtocol = svcsdktypes.ProtocolEnum(*r.ko.Spec.HealthCheckProtocol)
 	}
 	if r.ko.Spec.HealthCheckTimeoutSeconds != nil {
-		res.SetHealthCheckTimeoutSeconds(*r.ko.Spec.HealthCheckTimeoutSeconds)
+		healthCheckTimeoutSecondsCopy0 := *r.ko.Spec.HealthCheckTimeoutSeconds
+		if healthCheckTimeoutSecondsCopy0 > math.MaxInt32 || healthCheckTimeoutSecondsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthCheckTimeoutSeconds is of type int32")
+		}
+		healthCheckTimeoutSecondsCopy := int32(healthCheckTimeoutSecondsCopy0)
+		res.HealthCheckTimeoutSeconds = &healthCheckTimeoutSecondsCopy
 	}
 	if r.ko.Spec.HealthyThresholdCount != nil {
-		res.SetHealthyThresholdCount(*r.ko.Spec.HealthyThresholdCount)
+		healthyThresholdCountCopy0 := *r.ko.Spec.HealthyThresholdCount
+		if healthyThresholdCountCopy0 > math.MaxInt32 || healthyThresholdCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthyThresholdCount is of type int32")
+		}
+		healthyThresholdCountCopy := int32(healthyThresholdCountCopy0)
+		res.HealthyThresholdCount = &healthyThresholdCountCopy
 	}
 	if r.ko.Spec.IPAddressType != nil {
-		res.SetIpAddressType(*r.ko.Spec.IPAddressType)
+		res.IpAddressType = svcsdktypes.TargetGroupIpAddressTypeEnum(*r.ko.Spec.IPAddressType)
 	}
 	if r.ko.Spec.Matcher != nil {
-		f8 := &svcsdk.Matcher{}
+		f8 := &svcsdktypes.Matcher{}
 		if r.ko.Spec.Matcher.GRPCCode != nil {
-			f8.SetGrpcCode(*r.ko.Spec.Matcher.GRPCCode)
+			f8.GrpcCode = r.ko.Spec.Matcher.GRPCCode
 		}
 		if r.ko.Spec.Matcher.HTTPCode != nil {
-			f8.SetHttpCode(*r.ko.Spec.Matcher.HTTPCode)
+			f8.HttpCode = r.ko.Spec.Matcher.HTTPCode
 		}
-		res.SetMatcher(f8)
+		res.Matcher = f8
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Port != nil {
-		res.SetPort(*r.ko.Spec.Port)
+		portCopy0 := *r.ko.Spec.Port
+		if portCopy0 > math.MaxInt32 || portCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field Port is of type int32")
+		}
+		portCopy := int32(portCopy0)
+		res.Port = &portCopy
 	}
 	if r.ko.Spec.Protocol != nil {
-		res.SetProtocol(*r.ko.Spec.Protocol)
+		res.Protocol = svcsdktypes.ProtocolEnum(*r.ko.Spec.Protocol)
 	}
 	if r.ko.Spec.ProtocolVersion != nil {
-		res.SetProtocolVersion(*r.ko.Spec.ProtocolVersion)
+		res.ProtocolVersion = r.ko.Spec.ProtocolVersion
 	}
 	if r.ko.Spec.Tags != nil {
-		f13 := []*svcsdk.Tag{}
+		f13 := []svcsdktypes.Tag{}
 		for _, f13iter := range r.ko.Spec.Tags {
-			f13elem := &svcsdk.Tag{}
+			f13elem := &svcsdktypes.Tag{}
 			if f13iter.Key != nil {
-				f13elem.SetKey(*f13iter.Key)
+				f13elem.Key = f13iter.Key
 			}
 			if f13iter.Value != nil {
-				f13elem.SetValue(*f13iter.Value)
+				f13elem.Value = f13iter.Value
 			}
-			f13 = append(f13, f13elem)
+			f13 = append(f13, *f13elem)
 		}
-		res.SetTags(f13)
+		res.Tags = f13
 	}
 	if r.ko.Spec.TargetType != nil {
-		res.SetTargetType(*r.ko.Spec.TargetType)
+		res.TargetType = svcsdktypes.TargetTypeEnum(*r.ko.Spec.TargetType)
 	}
 	if r.ko.Spec.UnhealthyThresholdCount != nil {
-		res.SetUnhealthyThresholdCount(*r.ko.Spec.UnhealthyThresholdCount)
+		unhealthyThresholdCountCopy0 := *r.ko.Spec.UnhealthyThresholdCount
+		if unhealthyThresholdCountCopy0 > math.MaxInt32 || unhealthyThresholdCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field UnhealthyThresholdCount is of type int32")
+		}
+		unhealthyThresholdCountCopy := int32(unhealthyThresholdCountCopy0)
+		res.UnhealthyThresholdCount = &unhealthyThresholdCountCopy
 	}
 	if r.ko.Spec.VPCID != nil {
-		res.SetVpcId(*r.ko.Spec.VPCID)
+		res.VpcId = r.ko.Spec.VPCID
 	}
 
 	return res, nil
@@ -508,7 +535,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.ModifyTargetGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.ModifyTargetGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.ModifyTargetGroup(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "ModifyTargetGroup", err)
 	if err != nil {
 		return nil, err
@@ -525,7 +552,8 @@ func (rm *resourceManager) sdkUpdate(
 			ko.Spec.HealthCheckEnabled = nil
 		}
 		if elem.HealthCheckIntervalSeconds != nil {
-			ko.Spec.HealthCheckIntervalSeconds = elem.HealthCheckIntervalSeconds
+			healthCheckIntervalSecondsCopy := int64(*elem.HealthCheckIntervalSeconds)
+			ko.Spec.HealthCheckIntervalSeconds = &healthCheckIntervalSecondsCopy
 		} else {
 			ko.Spec.HealthCheckIntervalSeconds = nil
 		}
@@ -539,34 +567,30 @@ func (rm *resourceManager) sdkUpdate(
 		} else {
 			ko.Spec.HealthCheckPort = nil
 		}
-		if elem.HealthCheckProtocol != nil {
-			ko.Spec.HealthCheckProtocol = elem.HealthCheckProtocol
+		if elem.HealthCheckProtocol != "" {
+			ko.Spec.HealthCheckProtocol = aws.String(string(elem.HealthCheckProtocol))
 		} else {
 			ko.Spec.HealthCheckProtocol = nil
 		}
 		if elem.HealthCheckTimeoutSeconds != nil {
-			ko.Spec.HealthCheckTimeoutSeconds = elem.HealthCheckTimeoutSeconds
+			healthCheckTimeoutSecondsCopy := int64(*elem.HealthCheckTimeoutSeconds)
+			ko.Spec.HealthCheckTimeoutSeconds = &healthCheckTimeoutSecondsCopy
 		} else {
 			ko.Spec.HealthCheckTimeoutSeconds = nil
 		}
 		if elem.HealthyThresholdCount != nil {
-			ko.Spec.HealthyThresholdCount = elem.HealthyThresholdCount
+			healthyThresholdCountCopy := int64(*elem.HealthyThresholdCount)
+			ko.Spec.HealthyThresholdCount = &healthyThresholdCountCopy
 		} else {
 			ko.Spec.HealthyThresholdCount = nil
 		}
-		if elem.IpAddressType != nil {
-			ko.Spec.IPAddressType = elem.IpAddressType
+		if elem.IpAddressType != "" {
+			ko.Spec.IPAddressType = aws.String(string(elem.IpAddressType))
 		} else {
 			ko.Spec.IPAddressType = nil
 		}
 		if elem.LoadBalancerArns != nil {
-			f8 := []*string{}
-			for _, f8iter := range elem.LoadBalancerArns {
-				var f8elem string
-				f8elem = *f8iter
-				f8 = append(f8, &f8elem)
-			}
-			ko.Status.LoadBalancerARNs = f8
+			ko.Status.LoadBalancerARNs = aws.StringSlice(elem.LoadBalancerArns)
 		} else {
 			ko.Status.LoadBalancerARNs = nil
 		}
@@ -583,12 +607,13 @@ func (rm *resourceManager) sdkUpdate(
 			ko.Spec.Matcher = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -604,13 +629,14 @@ func (rm *resourceManager) sdkUpdate(
 			tmpARN := ackv1alpha1.AWSResourceName(*elem.TargetGroupArn)
 			ko.Status.ACKResourceMetadata.ARN = &tmpARN
 		}
-		if elem.TargetType != nil {
-			ko.Spec.TargetType = elem.TargetType
+		if elem.TargetType != "" {
+			ko.Spec.TargetType = aws.String(string(elem.TargetType))
 		} else {
 			ko.Spec.TargetType = nil
 		}
 		if elem.UnhealthyThresholdCount != nil {
-			ko.Spec.UnhealthyThresholdCount = elem.UnhealthyThresholdCount
+			unhealthyThresholdCountCopy := int64(*elem.UnhealthyThresholdCount)
+			ko.Spec.UnhealthyThresholdCount = &unhealthyThresholdCountCopy
 		} else {
 			ko.Spec.UnhealthyThresholdCount = nil
 		}
@@ -640,41 +666,61 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.ModifyTargetGroupInput{}
 
 	if r.ko.Spec.HealthCheckEnabled != nil {
-		res.SetHealthCheckEnabled(*r.ko.Spec.HealthCheckEnabled)
+		res.HealthCheckEnabled = r.ko.Spec.HealthCheckEnabled
 	}
 	if r.ko.Spec.HealthCheckIntervalSeconds != nil {
-		res.SetHealthCheckIntervalSeconds(*r.ko.Spec.HealthCheckIntervalSeconds)
+		healthCheckIntervalSecondsCopy0 := *r.ko.Spec.HealthCheckIntervalSeconds
+		if healthCheckIntervalSecondsCopy0 > math.MaxInt32 || healthCheckIntervalSecondsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthCheckIntervalSeconds is of type int32")
+		}
+		healthCheckIntervalSecondsCopy := int32(healthCheckIntervalSecondsCopy0)
+		res.HealthCheckIntervalSeconds = &healthCheckIntervalSecondsCopy
 	}
 	if r.ko.Spec.HealthCheckPath != nil {
-		res.SetHealthCheckPath(*r.ko.Spec.HealthCheckPath)
+		res.HealthCheckPath = r.ko.Spec.HealthCheckPath
 	}
 	if r.ko.Spec.HealthCheckPort != nil {
-		res.SetHealthCheckPort(*r.ko.Spec.HealthCheckPort)
+		res.HealthCheckPort = r.ko.Spec.HealthCheckPort
 	}
 	if r.ko.Spec.HealthCheckProtocol != nil {
-		res.SetHealthCheckProtocol(*r.ko.Spec.HealthCheckProtocol)
+		res.HealthCheckProtocol = svcsdktypes.ProtocolEnum(*r.ko.Spec.HealthCheckProtocol)
 	}
 	if r.ko.Spec.HealthCheckTimeoutSeconds != nil {
-		res.SetHealthCheckTimeoutSeconds(*r.ko.Spec.HealthCheckTimeoutSeconds)
+		healthCheckTimeoutSecondsCopy0 := *r.ko.Spec.HealthCheckTimeoutSeconds
+		if healthCheckTimeoutSecondsCopy0 > math.MaxInt32 || healthCheckTimeoutSecondsCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthCheckTimeoutSeconds is of type int32")
+		}
+		healthCheckTimeoutSecondsCopy := int32(healthCheckTimeoutSecondsCopy0)
+		res.HealthCheckTimeoutSeconds = &healthCheckTimeoutSecondsCopy
 	}
 	if r.ko.Spec.HealthyThresholdCount != nil {
-		res.SetHealthyThresholdCount(*r.ko.Spec.HealthyThresholdCount)
+		healthyThresholdCountCopy0 := *r.ko.Spec.HealthyThresholdCount
+		if healthyThresholdCountCopy0 > math.MaxInt32 || healthyThresholdCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field HealthyThresholdCount is of type int32")
+		}
+		healthyThresholdCountCopy := int32(healthyThresholdCountCopy0)
+		res.HealthyThresholdCount = &healthyThresholdCountCopy
 	}
 	if r.ko.Spec.Matcher != nil {
-		f7 := &svcsdk.Matcher{}
+		f7 := &svcsdktypes.Matcher{}
 		if r.ko.Spec.Matcher.GRPCCode != nil {
-			f7.SetGrpcCode(*r.ko.Spec.Matcher.GRPCCode)
+			f7.GrpcCode = r.ko.Spec.Matcher.GRPCCode
 		}
 		if r.ko.Spec.Matcher.HTTPCode != nil {
-			f7.SetHttpCode(*r.ko.Spec.Matcher.HTTPCode)
+			f7.HttpCode = r.ko.Spec.Matcher.HTTPCode
 		}
-		res.SetMatcher(f7)
+		res.Matcher = f7
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetTargetGroupArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.TargetGroupArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.UnhealthyThresholdCount != nil {
-		res.SetUnhealthyThresholdCount(*r.ko.Spec.UnhealthyThresholdCount)
+		unhealthyThresholdCountCopy0 := *r.ko.Spec.UnhealthyThresholdCount
+		if unhealthyThresholdCountCopy0 > math.MaxInt32 || unhealthyThresholdCountCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field UnhealthyThresholdCount is of type int32")
+		}
+		unhealthyThresholdCountCopy := int32(unhealthyThresholdCountCopy0)
+		res.UnhealthyThresholdCount = &unhealthyThresholdCountCopy
 	}
 
 	return res, nil
@@ -696,7 +742,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteTargetGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteTargetGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteTargetGroup(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteTargetGroup", err)
 	return nil, err
 }
@@ -709,7 +755,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteTargetGroupInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetTargetGroupArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.TargetGroupArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -817,11 +863,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "InvalidConfigurationRequest":
 		return true
 	default:

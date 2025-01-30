@@ -101,8 +101,16 @@ rules:
   resources:
   - listeners/status
   - loadbalancers/status
-  - rules/status
   - targetgroups/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - rules/status
   verbs:
   - get
   - patch

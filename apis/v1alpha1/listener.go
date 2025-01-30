@@ -53,13 +53,13 @@ type ListenerSpec struct {
 	LoadBalancerRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"loadBalancerRef,omitempty"`
 	// The mutual authentication configuration information.
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
-	// The port on which the load balancer is listening. You cannot specify a port
+	// The port on which the load balancer is listening. You can't specify a port
 	// for a Gateway Load Balancer.
 	Port *int64 `json:"port,omitempty"`
 	// The protocol for connections from clients to the load balancer. For Application
 	// Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load
 	// Balancers, the supported protocols are TCP, TLS, UDP, and TCP_UDP. You can’t
-	// specify the UDP or TCP_UDP protocol if dual-stack mode is enabled. You cannot
+	// specify the UDP or TCP_UDP protocol if dual-stack mode is enabled. You can't
 	// specify a protocol for a Gateway Load Balancer.
 	Protocol *string `json:"protocol,omitempty"`
 	// [HTTPS and TLS listeners] The security policy that defines which protocols

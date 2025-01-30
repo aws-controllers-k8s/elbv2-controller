@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.ELBV2{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.LoadBalancer{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -73,10 +75,11 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 	var resp *svcsdk.DescribeLoadBalancersOutput
-	resp, err = rm.sdkapi.DescribeLoadBalancersWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeLoadBalancers(ctx, input)
 	rm.metrics.RecordAPICall("READ_MANY", "DescribeLoadBalancers", err)
 	if err != nil {
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "LoadBalancerNotFound" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "LoadBalancerNotFound" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -152,8 +155,8 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Status.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = nil
 		}
-		if elem.IpAddressType != nil {
-			ko.Spec.IPAddressType = elem.IpAddressType
+		if elem.IpAddressType != "" {
+			ko.Spec.IPAddressType = aws.String(string(elem.IpAddressType))
 		} else {
 			ko.Spec.IPAddressType = nil
 		}
@@ -169,26 +172,20 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Spec.Name = nil
 		}
-		if elem.Scheme != nil {
-			ko.Spec.Scheme = elem.Scheme
+		if elem.Scheme != "" {
+			ko.Spec.Scheme = aws.String(string(elem.Scheme))
 		} else {
 			ko.Spec.Scheme = nil
 		}
 		if elem.SecurityGroups != nil {
-			f10 := []*string{}
-			for _, f10iter := range elem.SecurityGroups {
-				var f10elem string
-				f10elem = *f10iter
-				f10 = append(f10, &f10elem)
-			}
-			ko.Spec.SecurityGroups = f10
+			ko.Spec.SecurityGroups = aws.StringSlice(elem.SecurityGroups)
 		} else {
 			ko.Spec.SecurityGroups = nil
 		}
 		if elem.State != nil {
 			f11 := &svcapitypes.LoadBalancerState{}
-			if elem.State.Code != nil {
-				f11.Code = elem.State.Code
+			if elem.State.Code != "" {
+				f11.Code = aws.String(string(elem.State.Code))
 			}
 			if elem.State.Reason != nil {
 				f11.Reason = elem.State.Reason
@@ -197,8 +194,8 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Status.State = nil
 		}
-		if elem.Type != nil {
-			ko.Spec.Type = elem.Type
+		if elem.Type != "" {
+			ko.Spec.Type = aws.String(string(elem.Type))
 		} else {
 			ko.Spec.Type = nil
 		}
@@ -240,9 +237,9 @@ func (rm *resourceManager) newListRequestPayload(
 	res := &svcsdk.DescribeLoadBalancersInput{}
 
 	if r.ko.Spec.Name != nil {
-		f2 := []*string{}
-		f2 = append(f2, r.ko.Spec.Name)
-		res.SetNames(f2)
+		f2 := []string{}
+		f2 = append(f2, *r.ko.Spec.Name)
+		res.Names = f2
 	}
 
 	return res, nil
@@ -267,7 +264,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateLoadBalancerOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateLoadBalancerWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateLoadBalancer(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateLoadBalancer", err)
 	if err != nil {
 		return nil, err
@@ -342,8 +339,8 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Status.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = nil
 		}
-		if elem.IpAddressType != nil {
-			ko.Spec.IPAddressType = elem.IpAddressType
+		if elem.IpAddressType != "" {
+			ko.Spec.IPAddressType = aws.String(string(elem.IpAddressType))
 		} else {
 			ko.Spec.IPAddressType = nil
 		}
@@ -359,26 +356,20 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Spec.Name = nil
 		}
-		if elem.Scheme != nil {
-			ko.Spec.Scheme = elem.Scheme
+		if elem.Scheme != "" {
+			ko.Spec.Scheme = aws.String(string(elem.Scheme))
 		} else {
 			ko.Spec.Scheme = nil
 		}
 		if elem.SecurityGroups != nil {
-			f10 := []*string{}
-			for _, f10iter := range elem.SecurityGroups {
-				var f10elem string
-				f10elem = *f10iter
-				f10 = append(f10, &f10elem)
-			}
-			ko.Spec.SecurityGroups = f10
+			ko.Spec.SecurityGroups = aws.StringSlice(elem.SecurityGroups)
 		} else {
 			ko.Spec.SecurityGroups = nil
 		}
 		if elem.State != nil {
 			f11 := &svcapitypes.LoadBalancerState{}
-			if elem.State.Code != nil {
-				f11.Code = elem.State.Code
+			if elem.State.Code != "" {
+				f11.Code = aws.String(string(elem.State.Code))
 			}
 			if elem.State.Reason != nil {
 				f11.Reason = elem.State.Reason
@@ -387,8 +378,8 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Status.State = nil
 		}
-		if elem.Type != nil {
-			ko.Spec.Type = elem.Type
+		if elem.Type != "" {
+			ko.Spec.Type = aws.String(string(elem.Type))
 		} else {
 			ko.Spec.Type = nil
 		}
@@ -417,71 +408,59 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateLoadBalancerInput{}
 
 	if r.ko.Spec.CustomerOwnedIPv4Pool != nil {
-		res.SetCustomerOwnedIpv4Pool(*r.ko.Spec.CustomerOwnedIPv4Pool)
+		res.CustomerOwnedIpv4Pool = r.ko.Spec.CustomerOwnedIPv4Pool
 	}
 	if r.ko.Spec.IPAddressType != nil {
-		res.SetIpAddressType(*r.ko.Spec.IPAddressType)
+		res.IpAddressType = svcsdktypes.IpAddressType(*r.ko.Spec.IPAddressType)
 	}
 	if r.ko.Spec.Name != nil {
-		res.SetName(*r.ko.Spec.Name)
+		res.Name = r.ko.Spec.Name
 	}
 	if r.ko.Spec.Scheme != nil {
-		res.SetScheme(*r.ko.Spec.Scheme)
+		res.Scheme = svcsdktypes.LoadBalancerSchemeEnum(*r.ko.Spec.Scheme)
 	}
 	if r.ko.Spec.SecurityGroups != nil {
-		f4 := []*string{}
-		for _, f4iter := range r.ko.Spec.SecurityGroups {
-			var f4elem string
-			f4elem = *f4iter
-			f4 = append(f4, &f4elem)
-		}
-		res.SetSecurityGroups(f4)
+		res.SecurityGroups = aws.ToStringSlice(r.ko.Spec.SecurityGroups)
 	}
 	if r.ko.Spec.SubnetMappings != nil {
-		f5 := []*svcsdk.SubnetMapping{}
+		f5 := []svcsdktypes.SubnetMapping{}
 		for _, f5iter := range r.ko.Spec.SubnetMappings {
-			f5elem := &svcsdk.SubnetMapping{}
+			f5elem := &svcsdktypes.SubnetMapping{}
 			if f5iter.AllocationID != nil {
-				f5elem.SetAllocationId(*f5iter.AllocationID)
+				f5elem.AllocationId = f5iter.AllocationID
 			}
 			if f5iter.IPv6Address != nil {
-				f5elem.SetIPv6Address(*f5iter.IPv6Address)
+				f5elem.IPv6Address = f5iter.IPv6Address
 			}
 			if f5iter.PrivateIPv4Address != nil {
-				f5elem.SetPrivateIPv4Address(*f5iter.PrivateIPv4Address)
+				f5elem.PrivateIPv4Address = f5iter.PrivateIPv4Address
 			}
 			if f5iter.SubnetID != nil {
-				f5elem.SetSubnetId(*f5iter.SubnetID)
+				f5elem.SubnetId = f5iter.SubnetID
 			}
-			f5 = append(f5, f5elem)
+			f5 = append(f5, *f5elem)
 		}
-		res.SetSubnetMappings(f5)
+		res.SubnetMappings = f5
 	}
 	if r.ko.Spec.Subnets != nil {
-		f6 := []*string{}
-		for _, f6iter := range r.ko.Spec.Subnets {
-			var f6elem string
-			f6elem = *f6iter
-			f6 = append(f6, &f6elem)
-		}
-		res.SetSubnets(f6)
+		res.Subnets = aws.ToStringSlice(r.ko.Spec.Subnets)
 	}
 	if r.ko.Spec.Tags != nil {
-		f7 := []*svcsdk.Tag{}
+		f7 := []svcsdktypes.Tag{}
 		for _, f7iter := range r.ko.Spec.Tags {
-			f7elem := &svcsdk.Tag{}
+			f7elem := &svcsdktypes.Tag{}
 			if f7iter.Key != nil {
-				f7elem.SetKey(*f7iter.Key)
+				f7elem.Key = f7iter.Key
 			}
 			if f7iter.Value != nil {
-				f7elem.SetValue(*f7iter.Value)
+				f7elem.Value = f7iter.Value
 			}
-			f7 = append(f7, f7elem)
+			f7 = append(f7, *f7elem)
 		}
-		res.SetTags(f7)
+		res.Tags = f7
 	}
 	if r.ko.Spec.Type != nil {
-		res.SetType(*r.ko.Spec.Type)
+		res.Type = svcsdktypes.LoadBalancerTypeEnum(*r.ko.Spec.Type)
 	}
 
 	return res, nil
@@ -514,7 +493,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteLoadBalancerOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteLoadBalancerWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteLoadBalancer(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteLoadBalancer", err)
 	return nil, err
 }
@@ -527,7 +506,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteLoadBalancerInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetLoadBalancerArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.LoadBalancerArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -635,11 +614,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "ValidationError",
 		"InvalidConfigurationRequest",
 		"InvalidScheme":

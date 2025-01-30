@@ -30,9 +30,14 @@ type LoadBalancerSpec struct {
 	// [Application Load Balancers on Outposts] The ID of the customer-owned address
 	// pool (CoIP pool).
 	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`
-	// The type of IP addresses used by the subnets for your load balancer. The
-	// possible values are ipv4 (for IPv4 addresses) and dualstack (for IPv4 and
-	// IPv6 addresses).
+	// The IP address type. Internal load balancers must use ipv4.
+	//
+	// [Application Load Balancers] The possible values are ipv4 (IPv4 addresses),
+	// dualstack (IPv4 and IPv6 addresses), and dualstack-without-public-ipv4 (public
+	// IPv6 addresses and private IPv4 and IPv6 addresses).
+	//
+	// [Network Load Balancers and Gateway Load Balancers] The possible values are
+	// ipv4 (IPv4 addresses) and dualstack (IPv4 and IPv6 addresses).
 	IPAddressType *string `json:"ipAddressType,omitempty"`
 	// The name of the load balancer.
 	//
@@ -52,7 +57,7 @@ type LoadBalancerSpec struct {
 	//
 	// The default is an Internet-facing load balancer.
 	//
-	// You cannot specify a scheme for a Gateway Load Balancer.
+	// You can't specify a scheme for a Gateway Load Balancer.
 	Scheme            *string                                    `json:"scheme,omitempty"`
 	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// [Application Load Balancers and Network Load Balancers] The IDs of the security
@@ -62,7 +67,7 @@ type LoadBalancerSpec struct {
 	// Zone. You must specify either subnets or subnet mappings, but not both.
 	//
 	// [Application Load Balancers] You must specify subnets from at least two Availability
-	// Zones. You cannot specify Elastic IP addresses for your subnets.
+	// Zones. You can't specify Elastic IP addresses for your subnets.
 	//
 	// [Application Load Balancers on Outposts] You must specify one Outpost subnet.
 	//
@@ -77,7 +82,7 @@ type LoadBalancerSpec struct {
 	// per subnet.
 	//
 	// [Gateway Load Balancers] You can specify subnets from one or more Availability
-	// Zones. You cannot specify Elastic IP addresses for your subnets.
+	// Zones. You can't specify Elastic IP addresses for your subnets.
 	SubnetMappings []*SubnetMapping                           `json:"subnetMappings,omitempty"`
 	SubnetRefs     []*ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRefs,omitempty"`
 	// The IDs of the subnets. You can specify only one subnet per Availability
@@ -92,11 +97,8 @@ type LoadBalancerSpec struct {
 	// [Application Load Balancers on Local Zones] You can specify subnets from
 	// one or more Local Zones.
 	//
-	// [Network Load Balancers] You can specify subnets from one or more Availability
-	// Zones.
-	//
-	// [Gateway Load Balancers] You can specify subnets from one or more Availability
-	// Zones.
+	// [Network Load Balancers and Gateway Load Balancers] You can specify subnets
+	// from one or more Availability Zones.
 	Subnets []*string `json:"subnets,omitempty"`
 	// The tags to assign to the load balancer.
 	Tags []*Tag `json:"tags,omitempty"`

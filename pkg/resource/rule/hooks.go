@@ -19,7 +19,9 @@ import (
 	"strconv"
 
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 var (
@@ -37,14 +39,14 @@ func (rm *resourceManager) setRulePriority(
 	defer func() { exit(err) }()
 
 	input := &svcsdk.SetRulePrioritiesInput{
-		RulePriorities: []*svcsdk.RulePriorityPair{
+		RulePriorities: []svcsdktypes.RulePriorityPair{
 			{
-				Priority: res.ko.Spec.Priority,
+				Priority: aws.Int32(int32(*res.ko.Spec.Priority)),
 				RuleArn:  (*string)(res.ko.Status.ACKResourceMetadata.ARN),
 			},
 		},
 	}
-	_, err = rm.sdkapi.SetRulePrioritiesWithContext(ctx, input)
+	_, err = rm.sdkapi.SetRulePriorities(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateRule", err)
 	if err != nil {
 		return err

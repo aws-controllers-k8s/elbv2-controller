@@ -19,11 +19,12 @@ import (
 	"context"
 	"time"
 
+	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
-
-	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 var (
@@ -126,7 +127,7 @@ func (rm *resourceManager) registerTargets(
 		TargetGroupArn: &arn,
 		Targets:        apifyTargetDescription(targets),
 	}
-	_, err = rm.sdkapi.RegisterTargetsWithContext(ctx, input)
+	_, err = rm.sdkapi.RegisterTargets(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "RegisterTargets", err)
 	if err != nil {
 		return err
@@ -140,6 +141,10 @@ func (rm *resourceManager) deregisterTargets(
 	arn string,
 	targets []*svcapitypes.TargetDescription,
 ) (err error) {
+	if len(targets) == 0 {
+		return nil
+	}
+
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("rm.deregisterTargets")
 	defer func() { exit(err) }()
@@ -148,7 +153,7 @@ func (rm *resourceManager) deregisterTargets(
 		TargetGroupArn: &arn,
 		Targets:        apifyTargetDescription(targets),
 	}
-	_, err = rm.sdkapi.DeregisterTargetsWithContext(ctx, input)
+	_, err = rm.sdkapi.DeregisterTargets(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "DeregisterTargets", err)
 	if err != nil {
 		return err
@@ -168,36 +173,49 @@ func (rm *resourceManager) describeTargets(
 	input := &svcsdk.DescribeTargetHealthInput{
 		TargetGroupArn: (*string)(res.ko.Status.ACKResourceMetadata.ARN),
 	}
-	resp, err := rm.sdkapi.DescribeTargetHealthWithContext(ctx, input)
+	resp, err := rm.sdkapi.DescribeTargetHealth(ctx, input)
 	rm.metrics.RecordAPICall("READ_MANY", "DescribeTargetHealth", err)
 	if err != nil {
 		return err
 	}
 
-	res.ko.Spec.Targets = extractTargetDescription(resp.TargetHealthDescriptions)
+	targetHealthPtrs := make([]*svcsdktypes.TargetHealthDescription, len(resp.TargetHealthDescriptions))
+	for i := range resp.TargetHealthDescriptions {
+		targetHealthPtrs[i] = &resp.TargetHealthDescriptions[i]
+	}
+	res.ko.Spec.Targets = extractTargetDescription(targetHealthPtrs)
 	return nil
 }
 
-func apifyTargetDescription(target []*svcapitypes.TargetDescription) []*svcsdk.TargetDescription {
-	convertedTarget := make([]*svcsdk.TargetDescription, 0, len(target))
-	for _, t := range target {
-		convertedTarget = append(convertedTarget, &svcsdk.TargetDescription{
-			Id:               (*string)(t.ID),
-			AvailabilityZone: (*string)(t.AvailabilityZone),
-			Port:             (*int64)(t.Port),
-		})
+func apifyTargetDescription(target []*svcapitypes.TargetDescription) []svcsdktypes.TargetDescription {
+	convertedTarget := make([]svcsdktypes.TargetDescription, len(target))
+	for i, t := range target {
+		td := svcsdktypes.TargetDescription{
+			Id:               t.ID,
+			AvailabilityZone: t.AvailabilityZone,
+		}
+		if t.Port != nil {
+			td.Port = aws.Int32(int32(*t.Port))
+		}
+		convertedTarget[i] = td
 	}
 	return convertedTarget
 }
 
-func extractTargetDescription(targetHealth []*svcsdk.TargetHealthDescription) []*svcapitypes.TargetDescription {
+func extractTargetDescription(targetHealth []*svcsdktypes.TargetHealthDescription) []*svcapitypes.TargetDescription {
 	convertedTarget := make([]*svcapitypes.TargetDescription, 0, len(targetHealth))
 	for _, t := range targetHealth {
-		convertedTarget = append(convertedTarget, &svcapitypes.TargetDescription{
-			ID:               (*string)(t.Target.Id),
-			AvailabilityZone: (*string)(t.Target.AvailabilityZone),
-			Port:             (*int64)(t.Target.Port),
-		})
+		if t.Target == nil {
+			continue
+		}
+		td := &svcapitypes.TargetDescription{
+			ID:               t.Target.Id,
+			AvailabilityZone: t.Target.AvailabilityZone,
+		}
+		if t.Target.Port != nil {
+			td.Port = aws.Int64(int64(*t.Target.Port))
+		}
+		convertedTarget = append(convertedTarget, td)
 	}
 	return convertedTarget
 }

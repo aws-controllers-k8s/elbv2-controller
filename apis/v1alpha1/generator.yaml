@@ -7,8 +7,15 @@ ignore:
   - TrustStore
   field_paths:
   - DescribeLoadBalancersOutput.NextMarker
+  - MutualAuthenticationAttributes.AdvertiseTrustStoreCaNames
+  - MutualAuthenticationAttributes.TrustStoreAssociationStatus
+  - AvailabilityZone.SourceNatIpv6Prefixes
+  - LoadBalancer.EnablePrefixForIpv6SourceNat
+  - CreateLoadBalancerInput.EnablePrefixForIpv6SourceNat
+  - SubnetMapping.SourceNatIpv6Prefix
 sdk_names:
-  model_name: elasticloadbalancingv2
+  model_name: elastic-load-balancing-v2
+  package_name: elasticloadbalancingv2
 operations:
   DescribeLoadBalancers:
     operation_type:
@@ -141,8 +148,8 @@ resources:
         404:
           code: ListenerNotFound
       terminal_codes:
-      - ValidationError
       - ALPNPolicyNotFound
+      - ValidationError
       - DuplicateListener
       - IncompatibleProtocols
       - InvalidConfigurationRequest 

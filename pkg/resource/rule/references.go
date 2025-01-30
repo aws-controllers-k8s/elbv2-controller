@@ -30,6 +30,12 @@ import (
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 )
 
+// +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=targetgroups,verbs=get;list
+// +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=targetgroups/status,verbs=get;list
+
+// +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=listeners,verbs=get;list
+// +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=listeners/status,verbs=get;list
+
 // ClearResolvedReferences removes any reference values that were made
 // concrete in the spec. It returns a copy of the input AWSResource which
 // contains the original *Ref values, but none of their respective concrete

@@ -41,7 +41,7 @@ func (rm *resourceManager) setRulePriority(
 	input := &svcsdk.SetRulePrioritiesInput{
 		RulePriorities: []svcsdktypes.RulePriorityPair{
 			{
-				Priority: aws.Int32(int32(*res.ko.Spec.Priority)),
+				Priority: int32OrNil(res.ko.Spec.Priority),
 				RuleArn:  (*string)(res.ko.Status.ACKResourceMetadata.ARN),
 			},
 		},
@@ -73,4 +73,11 @@ func priorityFromSDK(sdkPriority *string) *int64 {
 	priority, _ := strconv.Atoi(*sdkPriority)
 	priorityInt64 := int64(priority)
 	return &priorityInt64
+}
+
+func int32OrNil(val *int64) *int32 {
+	if val != nil {
+		return aws.Int32(int32(*val))
+	}
+	return nil
 }

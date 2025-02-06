@@ -19,8 +19,9 @@ import (
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // setResourceAdditionalFields will describe the fields that are not return by the
@@ -53,7 +54,7 @@ func (rm *resourceManager) getLoadBalancerAttributes(
 	attributes := []*svcapitypes.LoadBalancerAttribute{}
 	var resp *svcsdk.DescribeLoadBalancerAttributesOutput
 
-	resp, err = rm.sdkapi.DescribeLoadBalancerAttributesWithContext(ctx, &svcsdk.DescribeLoadBalancerAttributesInput{
+	resp, err = rm.sdkapi.DescribeLoadBalancerAttributes(ctx, &svcsdk.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: (*string)(ko.Status.ACKResourceMetadata.ARN),
 	})
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeLoadBalancerAttributes", err)
@@ -141,13 +142,13 @@ func (rm *resourceManager) updateLoadBalancerAttributes(
 	var err error
 	defer func() { exit(err) }()
 
-	sdkAttributes := []*svcsdk.LoadBalancerAttribute{}
+	sdkAttributes := []*svcsdktypes.LoadBalancerAttribute{}
 	for _, attr := range desired.ko.Spec.Attributes {
 		// Only set non-empty attributes
 		if attr.Key == nil || attr.Value == nil || *attr.Key == "" || *attr.Value == "" {
 			continue
 		}
-		sdkAttribute := &svcsdk.LoadBalancerAttribute{
+		sdkAttribute := &svcsdktypes.LoadBalancerAttribute{
 			Key:   aws.String(*attr.Key),
 			Value: aws.String(*attr.Value),
 		}
@@ -156,9 +157,12 @@ func (rm *resourceManager) updateLoadBalancerAttributes(
 
 	input := &svcsdk.ModifyLoadBalancerAttributesInput{
 		LoadBalancerArn: (*string)(desired.ko.Status.ACKResourceMetadata.ARN),
-		Attributes:      sdkAttributes,
+		Attributes:      []svcsdktypes.LoadBalancerAttribute{},
 	}
-	_, err = rm.sdkapi.ModifyLoadBalancerAttributesWithContext(ctx, input)
+	for _, attr := range sdkAttributes {
+		input.Attributes = append(input.Attributes, *attr)
+	}
+	_, err = rm.sdkapi.ModifyLoadBalancerAttributes(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "ModifyLoadBalancerAttributes", err)
 	if err != nil {
 		return err

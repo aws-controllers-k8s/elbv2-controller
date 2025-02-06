@@ -16,9 +16,11 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	ec2apitypes "github.com/aws-controllers-k8s/ec2-controller/apis/v1alpha1"
+	elbv2apitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackcfg "github.com/aws-controllers-k8s/runtime/pkg/config"
 	ackrt "github.com/aws-controllers-k8s/runtime/pkg/runtime"
@@ -38,7 +40,6 @@ import (
 
 	svctypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	svcresource "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
 
 	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/listener"
 	_ "github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/load_balancer"
@@ -49,11 +50,10 @@ import (
 )
 
 var (
-	awsServiceAPIGroup    = "elbv2.services.k8s.aws"
-	awsServiceAlias       = "elbv2"
-	awsServiceEndpointsID = svcsdk.EndpointsID
-	scheme                = runtime.NewScheme()
-	setupLog              = ctrlrt.Log.WithName("setup")
+	awsServiceAPIGroup = "elbv2.services.k8s.aws"
+	awsServiceAlias    = "elbv2"
+	scheme             = runtime.NewScheme()
+	setupLog           = ctrlrt.Log.WithName("setup")
 )
 
 func init() {
@@ -62,6 +62,7 @@ func init() {
 	_ = svctypes.AddToScheme(scheme)
 	_ = ackv1alpha1.AddToScheme(scheme)
 	_ = ec2apitypes.AddToScheme(scheme)
+	_ = elbv2apitypes.AddToScheme(scheme)
 }
 
 func main() {
@@ -76,7 +77,8 @@ func main() {
 		resourceGVKs = append(resourceGVKs, mf.ResourceDescriptor().GroupVersionKind())
 	}
 
-	if err := ackCfg.Validate(ackcfg.WithGVKs(resourceGVKs)); err != nil {
+	ctx := context.Background()
+	if err := ackCfg.Validate(ctx, ackcfg.WithGVKs(resourceGVKs)); err != nil {
 		setupLog.Error(
 			err, "Unable to create controller manager",
 			"aws.service", awsServiceAlias,
@@ -141,7 +143,7 @@ func main() {
 		"aws.service", awsServiceAlias,
 	)
 	sc := ackrt.NewServiceController(
-		awsServiceAlias, awsServiceAPIGroup, awsServiceEndpointsID,
+		awsServiceAlias, awsServiceAPIGroup,
 		acktypes.VersionInfo{
 			version.GitCommit,
 			version.GitVersion,

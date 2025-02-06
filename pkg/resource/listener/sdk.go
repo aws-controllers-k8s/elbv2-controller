@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.ELBV2{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.Listener{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -73,15 +76,16 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 	// The ARN is guaranteed to be checked by the sdkFind method. We can safely cast it here.
-	input.SetListenerArns([]*string{(*string)(r.ko.Status.ACKResourceMetadata.ARN)})
+	input.ListenerArns = []string{(string)(*r.ko.Status.ACKResourceMetadata.ARN)}
 	// Unset the LoadBalancerArn field since we can't set both ListenerArn and LoadBalancerArn
 	// Probably needs to be done in the code-generator. @a-hilaly.
 	input.LoadBalancerArn = nil
 	var resp *svcsdk.DescribeListenersOutput
-	resp, err = rm.sdkapi.DescribeListenersWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeListeners(ctx, input)
 	rm.metrics.RecordAPICall("READ_MANY", "DescribeListeners", err)
 	if err != nil {
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ListenerNotFound" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ListenerNotFound" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -94,13 +98,7 @@ func (rm *resourceManager) sdkFind(
 	found := false
 	for _, elem := range resp.Listeners {
 		if elem.AlpnPolicy != nil {
-			f0 := []*string{}
-			for _, f0iter := range elem.AlpnPolicy {
-				var f0elem string
-				f0elem = *f0iter
-				f0 = append(f0, &f0elem)
-			}
-			ko.Spec.AlpnPolicy = f0
+			ko.Spec.AlpnPolicy = aws.StringSlice(elem.AlpnPolicy)
 		} else {
 			ko.Spec.AlpnPolicy = nil
 		}
@@ -127,16 +125,10 @@ func (rm *resourceManager) sdkFind(
 				if f2iter.AuthenticateCognitoConfig != nil {
 					f2elemf0 := &svcapitypes.AuthenticateCognitoActionConfig{}
 					if f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf0f0 := map[string]*string{}
-						for f2elemf0f0key, f2elemf0f0valiter := range f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams {
-							var f2elemf0f0val string
-							f2elemf0f0val = *f2elemf0f0valiter
-							f2elemf0f0[f2elemf0f0key] = &f2elemf0f0val
-						}
-						f2elemf0.AuthenticationRequestExtraParams = f2elemf0f0
+						f2elemf0.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams)
 					}
-					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != nil {
-						f2elemf0.OnUnauthenticatedRequest = f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != "" {
+						f2elemf0.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateCognitoConfig.Scope != nil {
 						f2elemf0.Scope = f2iter.AuthenticateCognitoConfig.Scope
@@ -161,13 +153,7 @@ func (rm *resourceManager) sdkFind(
 				if f2iter.AuthenticateOidcConfig != nil {
 					f2elemf1 := &svcapitypes.AuthenticateOIDCActionConfig{}
 					if f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf1f0 := map[string]*string{}
-						for f2elemf1f0key, f2elemf1f0valiter := range f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams {
-							var f2elemf1f0val string
-							f2elemf1f0val = *f2elemf1f0valiter
-							f2elemf1f0[f2elemf1f0key] = &f2elemf1f0val
-						}
-						f2elemf1.AuthenticationRequestExtraParams = f2elemf1f0
+						f2elemf1.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams)
 					}
 					if f2iter.AuthenticateOidcConfig.AuthorizationEndpoint != nil {
 						f2elemf1.AuthorizationEndpoint = f2iter.AuthenticateOidcConfig.AuthorizationEndpoint
@@ -181,8 +167,8 @@ func (rm *resourceManager) sdkFind(
 					if f2iter.AuthenticateOidcConfig.Issuer != nil {
 						f2elemf1.Issuer = f2iter.AuthenticateOidcConfig.Issuer
 					}
-					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != nil {
-						f2elemf1.OnUnauthenticatedRequest = f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != "" {
+						f2elemf1.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateOidcConfig.Scope != nil {
 						f2elemf1.Scope = f2iter.AuthenticateOidcConfig.Scope
@@ -222,7 +208,8 @@ func (rm *resourceManager) sdkFind(
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig != nil {
 						f2elemf3f0 := &svcapitypes.TargetGroupStickinessConfig{}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds != nil {
-							f2elemf3f0.DurationSeconds = f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds
+							durationSecondsCopy := int64(*f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds)
+							f2elemf3f0.DurationSeconds = &durationSecondsCopy
 						}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled != nil {
 							f2elemf3f0.Enabled = f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled
@@ -237,7 +224,8 @@ func (rm *resourceManager) sdkFind(
 								f2elemf3f1elem.TargetGroupARN = f2elemf3f1iter.TargetGroupArn
 							}
 							if f2elemf3f1iter.Weight != nil {
-								f2elemf3f1elem.Weight = f2elemf3f1iter.Weight
+								weightCopy := int64(*f2elemf3f1iter.Weight)
+								f2elemf3f1elem.Weight = &weightCopy
 							}
 							f2elemf3f1 = append(f2elemf3f1, f2elemf3f1elem)
 						}
@@ -246,7 +234,8 @@ func (rm *resourceManager) sdkFind(
 					f2elem.ForwardConfig = f2elemf3
 				}
 				if f2iter.Order != nil {
-					f2elem.Order = f2iter.Order
+					orderCopy := int64(*f2iter.Order)
+					f2elem.Order = &orderCopy
 				}
 				if f2iter.RedirectConfig != nil {
 					f2elemf5 := &svcapitypes.RedirectActionConfig{}
@@ -265,16 +254,16 @@ func (rm *resourceManager) sdkFind(
 					if f2iter.RedirectConfig.Query != nil {
 						f2elemf5.Query = f2iter.RedirectConfig.Query
 					}
-					if f2iter.RedirectConfig.StatusCode != nil {
-						f2elemf5.StatusCode = f2iter.RedirectConfig.StatusCode
+					if f2iter.RedirectConfig.StatusCode != "" {
+						f2elemf5.StatusCode = aws.String(string(f2iter.RedirectConfig.StatusCode))
 					}
 					f2elem.RedirectConfig = f2elemf5
 				}
 				if f2iter.TargetGroupArn != nil {
 					f2elem.TargetGroupARN = f2iter.TargetGroupArn
 				}
-				if f2iter.Type != nil {
-					f2elem.Type = f2iter.Type
+				if f2iter.Type != "" {
+					f2elem.Type = aws.String(string(f2iter.Type))
 				}
 				f2 = append(f2, f2elem)
 			}
@@ -310,12 +299,13 @@ func (rm *resourceManager) sdkFind(
 			ko.Spec.MutualAuthentication = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -352,7 +342,7 @@ func (rm *resourceManager) newListRequestPayload(
 	res := &svcsdk.DescribeListenersInput{}
 
 	if r.ko.Spec.LoadBalancerARN != nil {
-		res.SetLoadBalancerArn(*r.ko.Spec.LoadBalancerARN)
+		res.LoadBalancerArn = r.ko.Spec.LoadBalancerARN
 	}
 
 	return res, nil
@@ -377,7 +367,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateListenerOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateListenerWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateListener(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateListener", err)
 	if err != nil {
 		return nil, err
@@ -389,13 +379,7 @@ func (rm *resourceManager) sdkCreate(
 	found := false
 	for _, elem := range resp.Listeners {
 		if elem.AlpnPolicy != nil {
-			f0 := []*string{}
-			for _, f0iter := range elem.AlpnPolicy {
-				var f0elem string
-				f0elem = *f0iter
-				f0 = append(f0, &f0elem)
-			}
-			ko.Spec.AlpnPolicy = f0
+			ko.Spec.AlpnPolicy = aws.StringSlice(elem.AlpnPolicy)
 		} else {
 			ko.Spec.AlpnPolicy = nil
 		}
@@ -422,16 +406,10 @@ func (rm *resourceManager) sdkCreate(
 				if f2iter.AuthenticateCognitoConfig != nil {
 					f2elemf0 := &svcapitypes.AuthenticateCognitoActionConfig{}
 					if f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf0f0 := map[string]*string{}
-						for f2elemf0f0key, f2elemf0f0valiter := range f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams {
-							var f2elemf0f0val string
-							f2elemf0f0val = *f2elemf0f0valiter
-							f2elemf0f0[f2elemf0f0key] = &f2elemf0f0val
-						}
-						f2elemf0.AuthenticationRequestExtraParams = f2elemf0f0
+						f2elemf0.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams)
 					}
-					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != nil {
-						f2elemf0.OnUnauthenticatedRequest = f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != "" {
+						f2elemf0.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateCognitoConfig.Scope != nil {
 						f2elemf0.Scope = f2iter.AuthenticateCognitoConfig.Scope
@@ -456,13 +434,7 @@ func (rm *resourceManager) sdkCreate(
 				if f2iter.AuthenticateOidcConfig != nil {
 					f2elemf1 := &svcapitypes.AuthenticateOIDCActionConfig{}
 					if f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf1f0 := map[string]*string{}
-						for f2elemf1f0key, f2elemf1f0valiter := range f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams {
-							var f2elemf1f0val string
-							f2elemf1f0val = *f2elemf1f0valiter
-							f2elemf1f0[f2elemf1f0key] = &f2elemf1f0val
-						}
-						f2elemf1.AuthenticationRequestExtraParams = f2elemf1f0
+						f2elemf1.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams)
 					}
 					if f2iter.AuthenticateOidcConfig.AuthorizationEndpoint != nil {
 						f2elemf1.AuthorizationEndpoint = f2iter.AuthenticateOidcConfig.AuthorizationEndpoint
@@ -476,8 +448,8 @@ func (rm *resourceManager) sdkCreate(
 					if f2iter.AuthenticateOidcConfig.Issuer != nil {
 						f2elemf1.Issuer = f2iter.AuthenticateOidcConfig.Issuer
 					}
-					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != nil {
-						f2elemf1.OnUnauthenticatedRequest = f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != "" {
+						f2elemf1.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateOidcConfig.Scope != nil {
 						f2elemf1.Scope = f2iter.AuthenticateOidcConfig.Scope
@@ -517,7 +489,8 @@ func (rm *resourceManager) sdkCreate(
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig != nil {
 						f2elemf3f0 := &svcapitypes.TargetGroupStickinessConfig{}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds != nil {
-							f2elemf3f0.DurationSeconds = f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds
+							durationSecondsCopy := int64(*f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds)
+							f2elemf3f0.DurationSeconds = &durationSecondsCopy
 						}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled != nil {
 							f2elemf3f0.Enabled = f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled
@@ -532,7 +505,8 @@ func (rm *resourceManager) sdkCreate(
 								f2elemf3f1elem.TargetGroupARN = f2elemf3f1iter.TargetGroupArn
 							}
 							if f2elemf3f1iter.Weight != nil {
-								f2elemf3f1elem.Weight = f2elemf3f1iter.Weight
+								weightCopy := int64(*f2elemf3f1iter.Weight)
+								f2elemf3f1elem.Weight = &weightCopy
 							}
 							f2elemf3f1 = append(f2elemf3f1, f2elemf3f1elem)
 						}
@@ -541,7 +515,8 @@ func (rm *resourceManager) sdkCreate(
 					f2elem.ForwardConfig = f2elemf3
 				}
 				if f2iter.Order != nil {
-					f2elem.Order = f2iter.Order
+					orderCopy := int64(*f2iter.Order)
+					f2elem.Order = &orderCopy
 				}
 				if f2iter.RedirectConfig != nil {
 					f2elemf5 := &svcapitypes.RedirectActionConfig{}
@@ -560,16 +535,16 @@ func (rm *resourceManager) sdkCreate(
 					if f2iter.RedirectConfig.Query != nil {
 						f2elemf5.Query = f2iter.RedirectConfig.Query
 					}
-					if f2iter.RedirectConfig.StatusCode != nil {
-						f2elemf5.StatusCode = f2iter.RedirectConfig.StatusCode
+					if f2iter.RedirectConfig.StatusCode != "" {
+						f2elemf5.StatusCode = aws.String(string(f2iter.RedirectConfig.StatusCode))
 					}
 					f2elem.RedirectConfig = f2elemf5
 				}
 				if f2iter.TargetGroupArn != nil {
 					f2elem.TargetGroupARN = f2iter.TargetGroupArn
 				}
-				if f2iter.Type != nil {
-					f2elem.Type = f2iter.Type
+				if f2iter.Type != "" {
+					f2elem.Type = aws.String(string(f2iter.Type))
 				}
 				f2 = append(f2, f2elem)
 			}
@@ -605,12 +580,13 @@ func (rm *resourceManager) sdkCreate(
 			ko.Spec.MutualAuthentication = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -639,226 +615,228 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateListenerInput{}
 
 	if r.ko.Spec.AlpnPolicy != nil {
-		f0 := []*string{}
-		for _, f0iter := range r.ko.Spec.AlpnPolicy {
-			var f0elem string
-			f0elem = *f0iter
-			f0 = append(f0, &f0elem)
-		}
-		res.SetAlpnPolicy(f0)
+		res.AlpnPolicy = aws.ToStringSlice(r.ko.Spec.AlpnPolicy)
 	}
 	if r.ko.Spec.Certificates != nil {
-		f1 := []*svcsdk.Certificate{}
+		f1 := []svcsdktypes.Certificate{}
 		for _, f1iter := range r.ko.Spec.Certificates {
-			f1elem := &svcsdk.Certificate{}
+			f1elem := &svcsdktypes.Certificate{}
 			if f1iter.CertificateARN != nil {
-				f1elem.SetCertificateArn(*f1iter.CertificateARN)
+				f1elem.CertificateArn = f1iter.CertificateARN
 			}
 			if f1iter.IsDefault != nil {
-				f1elem.SetIsDefault(*f1iter.IsDefault)
+				f1elem.IsDefault = f1iter.IsDefault
 			}
-			f1 = append(f1, f1elem)
+			f1 = append(f1, *f1elem)
 		}
-		res.SetCertificates(f1)
+		res.Certificates = f1
 	}
 	if r.ko.Spec.DefaultActions != nil {
-		f2 := []*svcsdk.Action{}
+		f2 := []svcsdktypes.Action{}
 		for _, f2iter := range r.ko.Spec.DefaultActions {
-			f2elem := &svcsdk.Action{}
+			f2elem := &svcsdktypes.Action{}
 			if f2iter.AuthenticateCognitoConfig != nil {
-				f2elemf0 := &svcsdk.AuthenticateCognitoActionConfig{}
+				f2elemf0 := &svcsdktypes.AuthenticateCognitoActionConfig{}
 				if f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
-					f2elemf0f0 := map[string]*string{}
-					for f2elemf0f0key, f2elemf0f0valiter := range f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams {
-						var f2elemf0f0val string
-						f2elemf0f0val = *f2elemf0f0valiter
-						f2elemf0f0[f2elemf0f0key] = &f2elemf0f0val
-					}
-					f2elemf0.SetAuthenticationRequestExtraParams(f2elemf0f0)
+					f2elemf0.AuthenticationRequestExtraParams = aws.ToStringMap(f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams)
 				}
 				if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != nil {
-					f2elemf0.SetOnUnauthenticatedRequest(*f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest)
+					f2elemf0.OnUnauthenticatedRequest = svcsdktypes.AuthenticateCognitoActionConditionalBehaviorEnum(*f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest)
 				}
 				if f2iter.AuthenticateCognitoConfig.Scope != nil {
-					f2elemf0.SetScope(*f2iter.AuthenticateCognitoConfig.Scope)
+					f2elemf0.Scope = f2iter.AuthenticateCognitoConfig.Scope
 				}
 				if f2iter.AuthenticateCognitoConfig.SessionCookieName != nil {
-					f2elemf0.SetSessionCookieName(*f2iter.AuthenticateCognitoConfig.SessionCookieName)
+					f2elemf0.SessionCookieName = f2iter.AuthenticateCognitoConfig.SessionCookieName
 				}
 				if f2iter.AuthenticateCognitoConfig.SessionTimeout != nil {
-					f2elemf0.SetSessionTimeout(*f2iter.AuthenticateCognitoConfig.SessionTimeout)
+					f2elemf0.SessionTimeout = f2iter.AuthenticateCognitoConfig.SessionTimeout
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolARN != nil {
-					f2elemf0.SetUserPoolArn(*f2iter.AuthenticateCognitoConfig.UserPoolARN)
+					f2elemf0.UserPoolArn = f2iter.AuthenticateCognitoConfig.UserPoolARN
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolClientID != nil {
-					f2elemf0.SetUserPoolClientId(*f2iter.AuthenticateCognitoConfig.UserPoolClientID)
+					f2elemf0.UserPoolClientId = f2iter.AuthenticateCognitoConfig.UserPoolClientID
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolDomain != nil {
-					f2elemf0.SetUserPoolDomain(*f2iter.AuthenticateCognitoConfig.UserPoolDomain)
+					f2elemf0.UserPoolDomain = f2iter.AuthenticateCognitoConfig.UserPoolDomain
 				}
-				f2elem.SetAuthenticateCognitoConfig(f2elemf0)
+				f2elem.AuthenticateCognitoConfig = f2elemf0
 			}
 			if f2iter.AuthenticateOIDCConfig != nil {
-				f2elemf1 := &svcsdk.AuthenticateOidcActionConfig{}
+				f2elemf1 := &svcsdktypes.AuthenticateOidcActionConfig{}
 				if f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams != nil {
-					f2elemf1f0 := map[string]*string{}
-					for f2elemf1f0key, f2elemf1f0valiter := range f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams {
-						var f2elemf1f0val string
-						f2elemf1f0val = *f2elemf1f0valiter
-						f2elemf1f0[f2elemf1f0key] = &f2elemf1f0val
-					}
-					f2elemf1.SetAuthenticationRequestExtraParams(f2elemf1f0)
+					f2elemf1.AuthenticationRequestExtraParams = aws.ToStringMap(f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams)
 				}
 				if f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint != nil {
-					f2elemf1.SetAuthorizationEndpoint(*f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint)
+					f2elemf1.AuthorizationEndpoint = f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint
 				}
 				if f2iter.AuthenticateOIDCConfig.ClientID != nil {
-					f2elemf1.SetClientId(*f2iter.AuthenticateOIDCConfig.ClientID)
+					f2elemf1.ClientId = f2iter.AuthenticateOIDCConfig.ClientID
 				}
 				if f2iter.AuthenticateOIDCConfig.ClientSecret != nil {
-					f2elemf1.SetClientSecret(*f2iter.AuthenticateOIDCConfig.ClientSecret)
+					f2elemf1.ClientSecret = f2iter.AuthenticateOIDCConfig.ClientSecret
 				}
 				if f2iter.AuthenticateOIDCConfig.Issuer != nil {
-					f2elemf1.SetIssuer(*f2iter.AuthenticateOIDCConfig.Issuer)
+					f2elemf1.Issuer = f2iter.AuthenticateOIDCConfig.Issuer
 				}
 				if f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest != nil {
-					f2elemf1.SetOnUnauthenticatedRequest(*f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest)
+					f2elemf1.OnUnauthenticatedRequest = svcsdktypes.AuthenticateOidcActionConditionalBehaviorEnum(*f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest)
 				}
 				if f2iter.AuthenticateOIDCConfig.Scope != nil {
-					f2elemf1.SetScope(*f2iter.AuthenticateOIDCConfig.Scope)
+					f2elemf1.Scope = f2iter.AuthenticateOIDCConfig.Scope
 				}
 				if f2iter.AuthenticateOIDCConfig.SessionCookieName != nil {
-					f2elemf1.SetSessionCookieName(*f2iter.AuthenticateOIDCConfig.SessionCookieName)
+					f2elemf1.SessionCookieName = f2iter.AuthenticateOIDCConfig.SessionCookieName
 				}
 				if f2iter.AuthenticateOIDCConfig.SessionTimeout != nil {
-					f2elemf1.SetSessionTimeout(*f2iter.AuthenticateOIDCConfig.SessionTimeout)
+					f2elemf1.SessionTimeout = f2iter.AuthenticateOIDCConfig.SessionTimeout
 				}
 				if f2iter.AuthenticateOIDCConfig.TokenEndpoint != nil {
-					f2elemf1.SetTokenEndpoint(*f2iter.AuthenticateOIDCConfig.TokenEndpoint)
+					f2elemf1.TokenEndpoint = f2iter.AuthenticateOIDCConfig.TokenEndpoint
 				}
 				if f2iter.AuthenticateOIDCConfig.UseExistingClientSecret != nil {
-					f2elemf1.SetUseExistingClientSecret(*f2iter.AuthenticateOIDCConfig.UseExistingClientSecret)
+					f2elemf1.UseExistingClientSecret = f2iter.AuthenticateOIDCConfig.UseExistingClientSecret
 				}
 				if f2iter.AuthenticateOIDCConfig.UserInfoEndpoint != nil {
-					f2elemf1.SetUserInfoEndpoint(*f2iter.AuthenticateOIDCConfig.UserInfoEndpoint)
+					f2elemf1.UserInfoEndpoint = f2iter.AuthenticateOIDCConfig.UserInfoEndpoint
 				}
-				f2elem.SetAuthenticateOidcConfig(f2elemf1)
+				f2elem.AuthenticateOidcConfig = f2elemf1
 			}
 			if f2iter.FixedResponseConfig != nil {
-				f2elemf2 := &svcsdk.FixedResponseActionConfig{}
+				f2elemf2 := &svcsdktypes.FixedResponseActionConfig{}
 				if f2iter.FixedResponseConfig.ContentType != nil {
-					f2elemf2.SetContentType(*f2iter.FixedResponseConfig.ContentType)
+					f2elemf2.ContentType = f2iter.FixedResponseConfig.ContentType
 				}
 				if f2iter.FixedResponseConfig.MessageBody != nil {
-					f2elemf2.SetMessageBody(*f2iter.FixedResponseConfig.MessageBody)
+					f2elemf2.MessageBody = f2iter.FixedResponseConfig.MessageBody
 				}
 				if f2iter.FixedResponseConfig.StatusCode != nil {
-					f2elemf2.SetStatusCode(*f2iter.FixedResponseConfig.StatusCode)
+					f2elemf2.StatusCode = f2iter.FixedResponseConfig.StatusCode
 				}
-				f2elem.SetFixedResponseConfig(f2elemf2)
+				f2elem.FixedResponseConfig = f2elemf2
 			}
 			if f2iter.ForwardConfig != nil {
-				f2elemf3 := &svcsdk.ForwardActionConfig{}
+				f2elemf3 := &svcsdktypes.ForwardActionConfig{}
 				if f2iter.ForwardConfig.TargetGroupStickinessConfig != nil {
-					f2elemf3f0 := &svcsdk.TargetGroupStickinessConfig{}
+					f2elemf3f0 := &svcsdktypes.TargetGroupStickinessConfig{}
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds != nil {
-						f2elemf3f0.SetDurationSeconds(*f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds)
+						durationSecondsCopy0 := *f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds
+						if durationSecondsCopy0 > math.MaxInt32 || durationSecondsCopy0 < math.MinInt32 {
+							return nil, fmt.Errorf("error: field DurationSeconds is of type int32")
+						}
+						durationSecondsCopy := int32(durationSecondsCopy0)
+						f2elemf3f0.DurationSeconds = &durationSecondsCopy
 					}
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled != nil {
-						f2elemf3f0.SetEnabled(*f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled)
+						f2elemf3f0.Enabled = f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled
 					}
-					f2elemf3.SetTargetGroupStickinessConfig(f2elemf3f0)
+					f2elemf3.TargetGroupStickinessConfig = f2elemf3f0
 				}
 				if f2iter.ForwardConfig.TargetGroups != nil {
-					f2elemf3f1 := []*svcsdk.TargetGroupTuple{}
+					f2elemf3f1 := []svcsdktypes.TargetGroupTuple{}
 					for _, f2elemf3f1iter := range f2iter.ForwardConfig.TargetGroups {
-						f2elemf3f1elem := &svcsdk.TargetGroupTuple{}
+						f2elemf3f1elem := &svcsdktypes.TargetGroupTuple{}
 						if f2elemf3f1iter.TargetGroupARN != nil {
-							f2elemf3f1elem.SetTargetGroupArn(*f2elemf3f1iter.TargetGroupARN)
+							f2elemf3f1elem.TargetGroupArn = f2elemf3f1iter.TargetGroupARN
 						}
 						if f2elemf3f1iter.Weight != nil {
-							f2elemf3f1elem.SetWeight(*f2elemf3f1iter.Weight)
+							weightCopy0 := *f2elemf3f1iter.Weight
+							if weightCopy0 > math.MaxInt32 || weightCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field Weight is of type int32")
+							}
+							weightCopy := int32(weightCopy0)
+							f2elemf3f1elem.Weight = &weightCopy
 						}
-						f2elemf3f1 = append(f2elemf3f1, f2elemf3f1elem)
+						f2elemf3f1 = append(f2elemf3f1, *f2elemf3f1elem)
 					}
-					f2elemf3.SetTargetGroups(f2elemf3f1)
+					f2elemf3.TargetGroups = f2elemf3f1
 				}
-				f2elem.SetForwardConfig(f2elemf3)
+				f2elem.ForwardConfig = f2elemf3
 			}
 			if f2iter.Order != nil {
-				f2elem.SetOrder(*f2iter.Order)
+				orderCopy0 := *f2iter.Order
+				if orderCopy0 > math.MaxInt32 || orderCopy0 < math.MinInt32 {
+					return nil, fmt.Errorf("error: field Order is of type int32")
+				}
+				orderCopy := int32(orderCopy0)
+				f2elem.Order = &orderCopy
 			}
 			if f2iter.RedirectConfig != nil {
-				f2elemf5 := &svcsdk.RedirectActionConfig{}
+				f2elemf5 := &svcsdktypes.RedirectActionConfig{}
 				if f2iter.RedirectConfig.Host != nil {
-					f2elemf5.SetHost(*f2iter.RedirectConfig.Host)
+					f2elemf5.Host = f2iter.RedirectConfig.Host
 				}
 				if f2iter.RedirectConfig.Path != nil {
-					f2elemf5.SetPath(*f2iter.RedirectConfig.Path)
+					f2elemf5.Path = f2iter.RedirectConfig.Path
 				}
 				if f2iter.RedirectConfig.Port != nil {
-					f2elemf5.SetPort(*f2iter.RedirectConfig.Port)
+					f2elemf5.Port = f2iter.RedirectConfig.Port
 				}
 				if f2iter.RedirectConfig.Protocol != nil {
-					f2elemf5.SetProtocol(*f2iter.RedirectConfig.Protocol)
+					f2elemf5.Protocol = f2iter.RedirectConfig.Protocol
 				}
 				if f2iter.RedirectConfig.Query != nil {
-					f2elemf5.SetQuery(*f2iter.RedirectConfig.Query)
+					f2elemf5.Query = f2iter.RedirectConfig.Query
 				}
 				if f2iter.RedirectConfig.StatusCode != nil {
-					f2elemf5.SetStatusCode(*f2iter.RedirectConfig.StatusCode)
+					f2elemf5.StatusCode = svcsdktypes.RedirectActionStatusCodeEnum(*f2iter.RedirectConfig.StatusCode)
 				}
-				f2elem.SetRedirectConfig(f2elemf5)
+				f2elem.RedirectConfig = f2elemf5
 			}
 			if f2iter.TargetGroupARN != nil {
-				f2elem.SetTargetGroupArn(*f2iter.TargetGroupARN)
+				f2elem.TargetGroupArn = f2iter.TargetGroupARN
 			}
 			if f2iter.Type != nil {
-				f2elem.SetType(*f2iter.Type)
+				f2elem.Type = svcsdktypes.ActionTypeEnum(*f2iter.Type)
 			}
-			f2 = append(f2, f2elem)
+			f2 = append(f2, *f2elem)
 		}
-		res.SetDefaultActions(f2)
+		res.DefaultActions = f2
 	}
 	if r.ko.Spec.LoadBalancerARN != nil {
-		res.SetLoadBalancerArn(*r.ko.Spec.LoadBalancerARN)
+		res.LoadBalancerArn = r.ko.Spec.LoadBalancerARN
 	}
 	if r.ko.Spec.MutualAuthentication != nil {
-		f4 := &svcsdk.MutualAuthenticationAttributes{}
+		f4 := &svcsdktypes.MutualAuthenticationAttributes{}
 		if r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry != nil {
-			f4.SetIgnoreClientCertificateExpiry(*r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry)
+			f4.IgnoreClientCertificateExpiry = r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry
 		}
 		if r.ko.Spec.MutualAuthentication.Mode != nil {
-			f4.SetMode(*r.ko.Spec.MutualAuthentication.Mode)
+			f4.Mode = r.ko.Spec.MutualAuthentication.Mode
 		}
 		if r.ko.Spec.MutualAuthentication.TrustStoreARN != nil {
-			f4.SetTrustStoreArn(*r.ko.Spec.MutualAuthentication.TrustStoreARN)
+			f4.TrustStoreArn = r.ko.Spec.MutualAuthentication.TrustStoreARN
 		}
-		res.SetMutualAuthentication(f4)
+		res.MutualAuthentication = f4
 	}
 	if r.ko.Spec.Port != nil {
-		res.SetPort(*r.ko.Spec.Port)
+		portCopy0 := *r.ko.Spec.Port
+		if portCopy0 > math.MaxInt32 || portCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field Port is of type int32")
+		}
+		portCopy := int32(portCopy0)
+		res.Port = &portCopy
 	}
 	if r.ko.Spec.Protocol != nil {
-		res.SetProtocol(*r.ko.Spec.Protocol)
+		res.Protocol = svcsdktypes.ProtocolEnum(*r.ko.Spec.Protocol)
 	}
 	if r.ko.Spec.SSLPolicy != nil {
-		res.SetSslPolicy(*r.ko.Spec.SSLPolicy)
+		res.SslPolicy = r.ko.Spec.SSLPolicy
 	}
 	if r.ko.Spec.Tags != nil {
-		f8 := []*svcsdk.Tag{}
+		f8 := []svcsdktypes.Tag{}
 		for _, f8iter := range r.ko.Spec.Tags {
-			f8elem := &svcsdk.Tag{}
+			f8elem := &svcsdktypes.Tag{}
 			if f8iter.Key != nil {
-				f8elem.SetKey(*f8iter.Key)
+				f8elem.Key = f8iter.Key
 			}
 			if f8iter.Value != nil {
-				f8elem.SetValue(*f8iter.Value)
+				f8elem.Value = f8iter.Value
 			}
-			f8 = append(f8, f8elem)
+			f8 = append(f8, *f8elem)
 		}
-		res.SetTags(f8)
+		res.Tags = f8
 	}
 
 	return res, nil
@@ -884,7 +862,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.ModifyListenerOutput
 	_ = resp
-	resp, err = rm.sdkapi.ModifyListenerWithContext(ctx, input)
+	resp, err = rm.sdkapi.ModifyListener(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "ModifyListener", err)
 	if err != nil {
 		return nil, err
@@ -896,13 +874,7 @@ func (rm *resourceManager) sdkUpdate(
 	found := false
 	for _, elem := range resp.Listeners {
 		if elem.AlpnPolicy != nil {
-			f0 := []*string{}
-			for _, f0iter := range elem.AlpnPolicy {
-				var f0elem string
-				f0elem = *f0iter
-				f0 = append(f0, &f0elem)
-			}
-			ko.Spec.AlpnPolicy = f0
+			ko.Spec.AlpnPolicy = aws.StringSlice(elem.AlpnPolicy)
 		} else {
 			ko.Spec.AlpnPolicy = nil
 		}
@@ -929,16 +901,10 @@ func (rm *resourceManager) sdkUpdate(
 				if f2iter.AuthenticateCognitoConfig != nil {
 					f2elemf0 := &svcapitypes.AuthenticateCognitoActionConfig{}
 					if f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf0f0 := map[string]*string{}
-						for f2elemf0f0key, f2elemf0f0valiter := range f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams {
-							var f2elemf0f0val string
-							f2elemf0f0val = *f2elemf0f0valiter
-							f2elemf0f0[f2elemf0f0key] = &f2elemf0f0val
-						}
-						f2elemf0.AuthenticationRequestExtraParams = f2elemf0f0
+						f2elemf0.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams)
 					}
-					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != nil {
-						f2elemf0.OnUnauthenticatedRequest = f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != "" {
+						f2elemf0.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateCognitoConfig.Scope != nil {
 						f2elemf0.Scope = f2iter.AuthenticateCognitoConfig.Scope
@@ -963,13 +929,7 @@ func (rm *resourceManager) sdkUpdate(
 				if f2iter.AuthenticateOidcConfig != nil {
 					f2elemf1 := &svcapitypes.AuthenticateOIDCActionConfig{}
 					if f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams != nil {
-						f2elemf1f0 := map[string]*string{}
-						for f2elemf1f0key, f2elemf1f0valiter := range f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams {
-							var f2elemf1f0val string
-							f2elemf1f0val = *f2elemf1f0valiter
-							f2elemf1f0[f2elemf1f0key] = &f2elemf1f0val
-						}
-						f2elemf1.AuthenticationRequestExtraParams = f2elemf1f0
+						f2elemf1.AuthenticationRequestExtraParams = aws.StringMap(f2iter.AuthenticateOidcConfig.AuthenticationRequestExtraParams)
 					}
 					if f2iter.AuthenticateOidcConfig.AuthorizationEndpoint != nil {
 						f2elemf1.AuthorizationEndpoint = f2iter.AuthenticateOidcConfig.AuthorizationEndpoint
@@ -983,8 +943,8 @@ func (rm *resourceManager) sdkUpdate(
 					if f2iter.AuthenticateOidcConfig.Issuer != nil {
 						f2elemf1.Issuer = f2iter.AuthenticateOidcConfig.Issuer
 					}
-					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != nil {
-						f2elemf1.OnUnauthenticatedRequest = f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest
+					if f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest != "" {
+						f2elemf1.OnUnauthenticatedRequest = aws.String(string(f2iter.AuthenticateOidcConfig.OnUnauthenticatedRequest))
 					}
 					if f2iter.AuthenticateOidcConfig.Scope != nil {
 						f2elemf1.Scope = f2iter.AuthenticateOidcConfig.Scope
@@ -1024,7 +984,8 @@ func (rm *resourceManager) sdkUpdate(
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig != nil {
 						f2elemf3f0 := &svcapitypes.TargetGroupStickinessConfig{}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds != nil {
-							f2elemf3f0.DurationSeconds = f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds
+							durationSecondsCopy := int64(*f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds)
+							f2elemf3f0.DurationSeconds = &durationSecondsCopy
 						}
 						if f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled != nil {
 							f2elemf3f0.Enabled = f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled
@@ -1039,7 +1000,8 @@ func (rm *resourceManager) sdkUpdate(
 								f2elemf3f1elem.TargetGroupARN = f2elemf3f1iter.TargetGroupArn
 							}
 							if f2elemf3f1iter.Weight != nil {
-								f2elemf3f1elem.Weight = f2elemf3f1iter.Weight
+								weightCopy := int64(*f2elemf3f1iter.Weight)
+								f2elemf3f1elem.Weight = &weightCopy
 							}
 							f2elemf3f1 = append(f2elemf3f1, f2elemf3f1elem)
 						}
@@ -1048,7 +1010,8 @@ func (rm *resourceManager) sdkUpdate(
 					f2elem.ForwardConfig = f2elemf3
 				}
 				if f2iter.Order != nil {
-					f2elem.Order = f2iter.Order
+					orderCopy := int64(*f2iter.Order)
+					f2elem.Order = &orderCopy
 				}
 				if f2iter.RedirectConfig != nil {
 					f2elemf5 := &svcapitypes.RedirectActionConfig{}
@@ -1067,16 +1030,16 @@ func (rm *resourceManager) sdkUpdate(
 					if f2iter.RedirectConfig.Query != nil {
 						f2elemf5.Query = f2iter.RedirectConfig.Query
 					}
-					if f2iter.RedirectConfig.StatusCode != nil {
-						f2elemf5.StatusCode = f2iter.RedirectConfig.StatusCode
+					if f2iter.RedirectConfig.StatusCode != "" {
+						f2elemf5.StatusCode = aws.String(string(f2iter.RedirectConfig.StatusCode))
 					}
 					f2elem.RedirectConfig = f2elemf5
 				}
 				if f2iter.TargetGroupArn != nil {
 					f2elem.TargetGroupARN = f2iter.TargetGroupArn
 				}
-				if f2iter.Type != nil {
-					f2elem.Type = f2iter.Type
+				if f2iter.Type != "" {
+					f2elem.Type = aws.String(string(f2iter.Type))
 				}
 				f2 = append(f2, f2elem)
 			}
@@ -1112,12 +1075,13 @@ func (rm *resourceManager) sdkUpdate(
 			ko.Spec.MutualAuthentication = nil
 		}
 		if elem.Port != nil {
-			ko.Spec.Port = elem.Port
+			portCopy := int64(*elem.Port)
+			ko.Spec.Port = &portCopy
 		} else {
 			ko.Spec.Port = nil
 		}
-		if elem.Protocol != nil {
-			ko.Spec.Protocol = elem.Protocol
+		if elem.Protocol != "" {
+			ko.Spec.Protocol = aws.String(string(elem.Protocol))
 		} else {
 			ko.Spec.Protocol = nil
 		}
@@ -1147,212 +1111,214 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.ModifyListenerInput{}
 
 	if r.ko.Spec.AlpnPolicy != nil {
-		f0 := []*string{}
-		for _, f0iter := range r.ko.Spec.AlpnPolicy {
-			var f0elem string
-			f0elem = *f0iter
-			f0 = append(f0, &f0elem)
-		}
-		res.SetAlpnPolicy(f0)
+		res.AlpnPolicy = aws.ToStringSlice(r.ko.Spec.AlpnPolicy)
 	}
 	if r.ko.Spec.Certificates != nil {
-		f1 := []*svcsdk.Certificate{}
+		f1 := []svcsdktypes.Certificate{}
 		for _, f1iter := range r.ko.Spec.Certificates {
-			f1elem := &svcsdk.Certificate{}
+			f1elem := &svcsdktypes.Certificate{}
 			if f1iter.CertificateARN != nil {
-				f1elem.SetCertificateArn(*f1iter.CertificateARN)
+				f1elem.CertificateArn = f1iter.CertificateARN
 			}
 			if f1iter.IsDefault != nil {
-				f1elem.SetIsDefault(*f1iter.IsDefault)
+				f1elem.IsDefault = f1iter.IsDefault
 			}
-			f1 = append(f1, f1elem)
+			f1 = append(f1, *f1elem)
 		}
-		res.SetCertificates(f1)
+		res.Certificates = f1
 	}
 	if r.ko.Spec.DefaultActions != nil {
-		f2 := []*svcsdk.Action{}
+		f2 := []svcsdktypes.Action{}
 		for _, f2iter := range r.ko.Spec.DefaultActions {
-			f2elem := &svcsdk.Action{}
+			f2elem := &svcsdktypes.Action{}
 			if f2iter.AuthenticateCognitoConfig != nil {
-				f2elemf0 := &svcsdk.AuthenticateCognitoActionConfig{}
+				f2elemf0 := &svcsdktypes.AuthenticateCognitoActionConfig{}
 				if f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
-					f2elemf0f0 := map[string]*string{}
-					for f2elemf0f0key, f2elemf0f0valiter := range f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams {
-						var f2elemf0f0val string
-						f2elemf0f0val = *f2elemf0f0valiter
-						f2elemf0f0[f2elemf0f0key] = &f2elemf0f0val
-					}
-					f2elemf0.SetAuthenticationRequestExtraParams(f2elemf0f0)
+					f2elemf0.AuthenticationRequestExtraParams = aws.ToStringMap(f2iter.AuthenticateCognitoConfig.AuthenticationRequestExtraParams)
 				}
 				if f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest != nil {
-					f2elemf0.SetOnUnauthenticatedRequest(*f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest)
+					f2elemf0.OnUnauthenticatedRequest = svcsdktypes.AuthenticateCognitoActionConditionalBehaviorEnum(*f2iter.AuthenticateCognitoConfig.OnUnauthenticatedRequest)
 				}
 				if f2iter.AuthenticateCognitoConfig.Scope != nil {
-					f2elemf0.SetScope(*f2iter.AuthenticateCognitoConfig.Scope)
+					f2elemf0.Scope = f2iter.AuthenticateCognitoConfig.Scope
 				}
 				if f2iter.AuthenticateCognitoConfig.SessionCookieName != nil {
-					f2elemf0.SetSessionCookieName(*f2iter.AuthenticateCognitoConfig.SessionCookieName)
+					f2elemf0.SessionCookieName = f2iter.AuthenticateCognitoConfig.SessionCookieName
 				}
 				if f2iter.AuthenticateCognitoConfig.SessionTimeout != nil {
-					f2elemf0.SetSessionTimeout(*f2iter.AuthenticateCognitoConfig.SessionTimeout)
+					f2elemf0.SessionTimeout = f2iter.AuthenticateCognitoConfig.SessionTimeout
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolARN != nil {
-					f2elemf0.SetUserPoolArn(*f2iter.AuthenticateCognitoConfig.UserPoolARN)
+					f2elemf0.UserPoolArn = f2iter.AuthenticateCognitoConfig.UserPoolARN
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolClientID != nil {
-					f2elemf0.SetUserPoolClientId(*f2iter.AuthenticateCognitoConfig.UserPoolClientID)
+					f2elemf0.UserPoolClientId = f2iter.AuthenticateCognitoConfig.UserPoolClientID
 				}
 				if f2iter.AuthenticateCognitoConfig.UserPoolDomain != nil {
-					f2elemf0.SetUserPoolDomain(*f2iter.AuthenticateCognitoConfig.UserPoolDomain)
+					f2elemf0.UserPoolDomain = f2iter.AuthenticateCognitoConfig.UserPoolDomain
 				}
-				f2elem.SetAuthenticateCognitoConfig(f2elemf0)
+				f2elem.AuthenticateCognitoConfig = f2elemf0
 			}
 			if f2iter.AuthenticateOIDCConfig != nil {
-				f2elemf1 := &svcsdk.AuthenticateOidcActionConfig{}
+				f2elemf1 := &svcsdktypes.AuthenticateOidcActionConfig{}
 				if f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams != nil {
-					f2elemf1f0 := map[string]*string{}
-					for f2elemf1f0key, f2elemf1f0valiter := range f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams {
-						var f2elemf1f0val string
-						f2elemf1f0val = *f2elemf1f0valiter
-						f2elemf1f0[f2elemf1f0key] = &f2elemf1f0val
-					}
-					f2elemf1.SetAuthenticationRequestExtraParams(f2elemf1f0)
+					f2elemf1.AuthenticationRequestExtraParams = aws.ToStringMap(f2iter.AuthenticateOIDCConfig.AuthenticationRequestExtraParams)
 				}
 				if f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint != nil {
-					f2elemf1.SetAuthorizationEndpoint(*f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint)
+					f2elemf1.AuthorizationEndpoint = f2iter.AuthenticateOIDCConfig.AuthorizationEndpoint
 				}
 				if f2iter.AuthenticateOIDCConfig.ClientID != nil {
-					f2elemf1.SetClientId(*f2iter.AuthenticateOIDCConfig.ClientID)
+					f2elemf1.ClientId = f2iter.AuthenticateOIDCConfig.ClientID
 				}
 				if f2iter.AuthenticateOIDCConfig.ClientSecret != nil {
-					f2elemf1.SetClientSecret(*f2iter.AuthenticateOIDCConfig.ClientSecret)
+					f2elemf1.ClientSecret = f2iter.AuthenticateOIDCConfig.ClientSecret
 				}
 				if f2iter.AuthenticateOIDCConfig.Issuer != nil {
-					f2elemf1.SetIssuer(*f2iter.AuthenticateOIDCConfig.Issuer)
+					f2elemf1.Issuer = f2iter.AuthenticateOIDCConfig.Issuer
 				}
 				if f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest != nil {
-					f2elemf1.SetOnUnauthenticatedRequest(*f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest)
+					f2elemf1.OnUnauthenticatedRequest = svcsdktypes.AuthenticateOidcActionConditionalBehaviorEnum(*f2iter.AuthenticateOIDCConfig.OnUnauthenticatedRequest)
 				}
 				if f2iter.AuthenticateOIDCConfig.Scope != nil {
-					f2elemf1.SetScope(*f2iter.AuthenticateOIDCConfig.Scope)
+					f2elemf1.Scope = f2iter.AuthenticateOIDCConfig.Scope
 				}
 				if f2iter.AuthenticateOIDCConfig.SessionCookieName != nil {
-					f2elemf1.SetSessionCookieName(*f2iter.AuthenticateOIDCConfig.SessionCookieName)
+					f2elemf1.SessionCookieName = f2iter.AuthenticateOIDCConfig.SessionCookieName
 				}
 				if f2iter.AuthenticateOIDCConfig.SessionTimeout != nil {
-					f2elemf1.SetSessionTimeout(*f2iter.AuthenticateOIDCConfig.SessionTimeout)
+					f2elemf1.SessionTimeout = f2iter.AuthenticateOIDCConfig.SessionTimeout
 				}
 				if f2iter.AuthenticateOIDCConfig.TokenEndpoint != nil {
-					f2elemf1.SetTokenEndpoint(*f2iter.AuthenticateOIDCConfig.TokenEndpoint)
+					f2elemf1.TokenEndpoint = f2iter.AuthenticateOIDCConfig.TokenEndpoint
 				}
 				if f2iter.AuthenticateOIDCConfig.UseExistingClientSecret != nil {
-					f2elemf1.SetUseExistingClientSecret(*f2iter.AuthenticateOIDCConfig.UseExistingClientSecret)
+					f2elemf1.UseExistingClientSecret = f2iter.AuthenticateOIDCConfig.UseExistingClientSecret
 				}
 				if f2iter.AuthenticateOIDCConfig.UserInfoEndpoint != nil {
-					f2elemf1.SetUserInfoEndpoint(*f2iter.AuthenticateOIDCConfig.UserInfoEndpoint)
+					f2elemf1.UserInfoEndpoint = f2iter.AuthenticateOIDCConfig.UserInfoEndpoint
 				}
-				f2elem.SetAuthenticateOidcConfig(f2elemf1)
+				f2elem.AuthenticateOidcConfig = f2elemf1
 			}
 			if f2iter.FixedResponseConfig != nil {
-				f2elemf2 := &svcsdk.FixedResponseActionConfig{}
+				f2elemf2 := &svcsdktypes.FixedResponseActionConfig{}
 				if f2iter.FixedResponseConfig.ContentType != nil {
-					f2elemf2.SetContentType(*f2iter.FixedResponseConfig.ContentType)
+					f2elemf2.ContentType = f2iter.FixedResponseConfig.ContentType
 				}
 				if f2iter.FixedResponseConfig.MessageBody != nil {
-					f2elemf2.SetMessageBody(*f2iter.FixedResponseConfig.MessageBody)
+					f2elemf2.MessageBody = f2iter.FixedResponseConfig.MessageBody
 				}
 				if f2iter.FixedResponseConfig.StatusCode != nil {
-					f2elemf2.SetStatusCode(*f2iter.FixedResponseConfig.StatusCode)
+					f2elemf2.StatusCode = f2iter.FixedResponseConfig.StatusCode
 				}
-				f2elem.SetFixedResponseConfig(f2elemf2)
+				f2elem.FixedResponseConfig = f2elemf2
 			}
 			if f2iter.ForwardConfig != nil {
-				f2elemf3 := &svcsdk.ForwardActionConfig{}
+				f2elemf3 := &svcsdktypes.ForwardActionConfig{}
 				if f2iter.ForwardConfig.TargetGroupStickinessConfig != nil {
-					f2elemf3f0 := &svcsdk.TargetGroupStickinessConfig{}
+					f2elemf3f0 := &svcsdktypes.TargetGroupStickinessConfig{}
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds != nil {
-						f2elemf3f0.SetDurationSeconds(*f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds)
+						durationSecondsCopy0 := *f2iter.ForwardConfig.TargetGroupStickinessConfig.DurationSeconds
+						if durationSecondsCopy0 > math.MaxInt32 || durationSecondsCopy0 < math.MinInt32 {
+							return nil, fmt.Errorf("error: field DurationSeconds is of type int32")
+						}
+						durationSecondsCopy := int32(durationSecondsCopy0)
+						f2elemf3f0.DurationSeconds = &durationSecondsCopy
 					}
 					if f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled != nil {
-						f2elemf3f0.SetEnabled(*f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled)
+						f2elemf3f0.Enabled = f2iter.ForwardConfig.TargetGroupStickinessConfig.Enabled
 					}
-					f2elemf3.SetTargetGroupStickinessConfig(f2elemf3f0)
+					f2elemf3.TargetGroupStickinessConfig = f2elemf3f0
 				}
 				if f2iter.ForwardConfig.TargetGroups != nil {
-					f2elemf3f1 := []*svcsdk.TargetGroupTuple{}
+					f2elemf3f1 := []svcsdktypes.TargetGroupTuple{}
 					for _, f2elemf3f1iter := range f2iter.ForwardConfig.TargetGroups {
-						f2elemf3f1elem := &svcsdk.TargetGroupTuple{}
+						f2elemf3f1elem := &svcsdktypes.TargetGroupTuple{}
 						if f2elemf3f1iter.TargetGroupARN != nil {
-							f2elemf3f1elem.SetTargetGroupArn(*f2elemf3f1iter.TargetGroupARN)
+							f2elemf3f1elem.TargetGroupArn = f2elemf3f1iter.TargetGroupARN
 						}
 						if f2elemf3f1iter.Weight != nil {
-							f2elemf3f1elem.SetWeight(*f2elemf3f1iter.Weight)
+							weightCopy0 := *f2elemf3f1iter.Weight
+							if weightCopy0 > math.MaxInt32 || weightCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field Weight is of type int32")
+							}
+							weightCopy := int32(weightCopy0)
+							f2elemf3f1elem.Weight = &weightCopy
 						}
-						f2elemf3f1 = append(f2elemf3f1, f2elemf3f1elem)
+						f2elemf3f1 = append(f2elemf3f1, *f2elemf3f1elem)
 					}
-					f2elemf3.SetTargetGroups(f2elemf3f1)
+					f2elemf3.TargetGroups = f2elemf3f1
 				}
-				f2elem.SetForwardConfig(f2elemf3)
+				f2elem.ForwardConfig = f2elemf3
 			}
 			if f2iter.Order != nil {
-				f2elem.SetOrder(*f2iter.Order)
+				orderCopy0 := *f2iter.Order
+				if orderCopy0 > math.MaxInt32 || orderCopy0 < math.MinInt32 {
+					return nil, fmt.Errorf("error: field Order is of type int32")
+				}
+				orderCopy := int32(orderCopy0)
+				f2elem.Order = &orderCopy
 			}
 			if f2iter.RedirectConfig != nil {
-				f2elemf5 := &svcsdk.RedirectActionConfig{}
+				f2elemf5 := &svcsdktypes.RedirectActionConfig{}
 				if f2iter.RedirectConfig.Host != nil {
-					f2elemf5.SetHost(*f2iter.RedirectConfig.Host)
+					f2elemf5.Host = f2iter.RedirectConfig.Host
 				}
 				if f2iter.RedirectConfig.Path != nil {
-					f2elemf5.SetPath(*f2iter.RedirectConfig.Path)
+					f2elemf5.Path = f2iter.RedirectConfig.Path
 				}
 				if f2iter.RedirectConfig.Port != nil {
-					f2elemf5.SetPort(*f2iter.RedirectConfig.Port)
+					f2elemf5.Port = f2iter.RedirectConfig.Port
 				}
 				if f2iter.RedirectConfig.Protocol != nil {
-					f2elemf5.SetProtocol(*f2iter.RedirectConfig.Protocol)
+					f2elemf5.Protocol = f2iter.RedirectConfig.Protocol
 				}
 				if f2iter.RedirectConfig.Query != nil {
-					f2elemf5.SetQuery(*f2iter.RedirectConfig.Query)
+					f2elemf5.Query = f2iter.RedirectConfig.Query
 				}
 				if f2iter.RedirectConfig.StatusCode != nil {
-					f2elemf5.SetStatusCode(*f2iter.RedirectConfig.StatusCode)
+					f2elemf5.StatusCode = svcsdktypes.RedirectActionStatusCodeEnum(*f2iter.RedirectConfig.StatusCode)
 				}
-				f2elem.SetRedirectConfig(f2elemf5)
+				f2elem.RedirectConfig = f2elemf5
 			}
 			if f2iter.TargetGroupARN != nil {
-				f2elem.SetTargetGroupArn(*f2iter.TargetGroupARN)
+				f2elem.TargetGroupArn = f2iter.TargetGroupARN
 			}
 			if f2iter.Type != nil {
-				f2elem.SetType(*f2iter.Type)
+				f2elem.Type = svcsdktypes.ActionTypeEnum(*f2iter.Type)
 			}
-			f2 = append(f2, f2elem)
+			f2 = append(f2, *f2elem)
 		}
-		res.SetDefaultActions(f2)
+		res.DefaultActions = f2
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetListenerArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.ListenerArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.MutualAuthentication != nil {
-		f4 := &svcsdk.MutualAuthenticationAttributes{}
+		f4 := &svcsdktypes.MutualAuthenticationAttributes{}
 		if r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry != nil {
-			f4.SetIgnoreClientCertificateExpiry(*r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry)
+			f4.IgnoreClientCertificateExpiry = r.ko.Spec.MutualAuthentication.IgnoreClientCertificateExpiry
 		}
 		if r.ko.Spec.MutualAuthentication.Mode != nil {
-			f4.SetMode(*r.ko.Spec.MutualAuthentication.Mode)
+			f4.Mode = r.ko.Spec.MutualAuthentication.Mode
 		}
 		if r.ko.Spec.MutualAuthentication.TrustStoreARN != nil {
-			f4.SetTrustStoreArn(*r.ko.Spec.MutualAuthentication.TrustStoreARN)
+			f4.TrustStoreArn = r.ko.Spec.MutualAuthentication.TrustStoreARN
 		}
-		res.SetMutualAuthentication(f4)
+		res.MutualAuthentication = f4
 	}
 	if r.ko.Spec.Port != nil {
-		res.SetPort(*r.ko.Spec.Port)
+		portCopy0 := *r.ko.Spec.Port
+		if portCopy0 > math.MaxInt32 || portCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field Port is of type int32")
+		}
+		portCopy := int32(portCopy0)
+		res.Port = &portCopy
 	}
 	if r.ko.Spec.Protocol != nil {
-		res.SetProtocol(*r.ko.Spec.Protocol)
+		res.Protocol = svcsdktypes.ProtocolEnum(*r.ko.Spec.Protocol)
 	}
 	if r.ko.Spec.SSLPolicy != nil {
-		res.SetSslPolicy(*r.ko.Spec.SSLPolicy)
+		res.SslPolicy = r.ko.Spec.SSLPolicy
 	}
 
 	return res, nil
@@ -1374,7 +1340,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteListenerOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteListenerWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteListener(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteListener", err)
 	return nil, err
 }
@@ -1387,7 +1353,7 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteListenerInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetListenerArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.ListenerArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 
 	return res, nil
@@ -1495,13 +1461,14 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
-	case "ValidationError",
-		"ALPNPolicyNotFound",
+	switch terminalErr.ErrorCode() {
+	case "ALPNPolicyNotFound",
+		"ValidationError",
 		"DuplicateListener",
 		"IncompatibleProtocols",
 		"InvalidConfigurationRequest",

@@ -46,7 +46,7 @@ spec:
                 description: |-
                   Indicates whether health checks are enabled. If the target type is lambda,
                   health checks are disabled by default but can be enabled. If the target type
-                  is instance, ip, or alb, health checks are always enabled and cannot be disabled.
+                  is instance, ip, or alb, health checks are always enabled and can't be disabled.
                 type: boolean
               healthCheckIntervalSeconds:
                 description: |-
@@ -101,10 +101,7 @@ spec:
                 format: int64
                 type: integer
               ipAddressType:
-                description: |-
-                  The type of IP address used for this target group. The possible values are
-                  ipv4 and ipv6. This is an optional parameter. If not specified, the IP address
-                  type defaults to ipv4.
+                description: The IP address type. The default value is ipv4.
                 type: string
               matcher:
                 description: |-

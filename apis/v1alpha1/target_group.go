@@ -27,7 +27,7 @@ type TargetGroupSpec struct {
 
 	// Indicates whether health checks are enabled. If the target type is lambda,
 	// health checks are disabled by default but can be enabled. If the target type
-	// is instance, ip, or alb, health checks are always enabled and cannot be disabled.
+	// is instance, ip, or alb, health checks are always enabled and can't be disabled.
 	HealthCheckEnabled *bool `json:"healthCheckEnabled,omitempty"`
 	// The approximate amount of time, in seconds, between health checks of an individual
 	// target. The range is 5-300. If the target group protocol is TCP, TLS, UDP,
@@ -66,9 +66,7 @@ type TargetGroupSpec struct {
 	// a protocol of GENEVE, the default is 5. If the target type is lambda, the
 	// default is 5.
 	HealthyThresholdCount *int64 `json:"healthyThresholdCount,omitempty"`
-	// The type of IP address used for this target group. The possible values are
-	// ipv4 and ipv6. This is an optional parameter. If not specified, the IP address
-	// type defaults to ipv4.
+	// The IP address type. The default value is ipv4.
 	IPAddressType *string `json:"ipAddressType,omitempty"`
 	// [HTTP/HTTPS health checks] The HTTP or gRPC codes to use when checking for
 	// a successful response from a target. For target groups with a protocol of

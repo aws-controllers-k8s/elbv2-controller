@@ -43,7 +43,6 @@ spec:
               Information about a load balancer.
             properties:
               attributes:
-                description: The load balancer attributes.
                 items:
                   description: Information about a load balancer attribute.
                   properties:
@@ -54,44 +53,12 @@ spec:
                   type: object
                 type: array
               customerOwnedIPv4Pool:
-                description: |-
-                  [Application Load Balancers on Outposts] The ID of the customer-owned address
-                  pool (CoIP pool).
                 type: string
               ipAddressType:
-                description: |-
-                  The IP address type. Internal load balancers must use ipv4.
-
-                  [Application Load Balancers] The possible values are ipv4 (IPv4 addresses),
-                  dualstack (IPv4 and IPv6 addresses), and dualstack-without-public-ipv4 (public
-                  IPv6 addresses and private IPv4 and IPv6 addresses).
-
-                  [Network Load Balancers and Gateway Load Balancers] The possible values are
-                  ipv4 (IPv4 addresses) and dualstack (IPv4 and IPv6 addresses).
                 type: string
               name:
-                description: |-
-                  The name of the load balancer.
-
-                  This name must be unique per region per account, can have a maximum of 32
-                  characters, must contain only alphanumeric characters or hyphens, must not
-                  begin or end with a hyphen, and must not begin with "internal-".
                 type: string
               scheme:
-                description: |-
-                  The nodes of an Internet-facing load balancer have public IP addresses. The
-                  DNS name of an Internet-facing load balancer is publicly resolvable to the
-                  public IP addresses of the nodes. Therefore, Internet-facing load balancers
-                  can route requests from clients over the internet.
-
-                  The nodes of an internal load balancer have only private IP addresses. The
-                  DNS name of an internal load balancer is publicly resolvable to the private
-                  IP addresses of the nodes. Therefore, internal load balancers can route requests
-                  only from clients with access to the VPC for the load balancer.
-
-                  The default is an Internet-facing load balancer.
-
-                  You can't specify a scheme for a Gateway Load Balancer.
                 type: string
               securityGroupRefs:
                 items:
@@ -113,34 +80,10 @@ spec:
                   type: object
                 type: array
               securityGroups:
-                description: |-
-                  [Application Load Balancers and Network Load Balancers] The IDs of the security
-                  groups for the load balancer.
                 items:
                   type: string
                 type: array
               subnetMappings:
-                description: |-
-                  The IDs of the subnets. You can specify only one subnet per Availability
-                  Zone. You must specify either subnets or subnet mappings, but not both.
-
-                  [Application Load Balancers] You must specify subnets from at least two Availability
-                  Zones. You can't specify Elastic IP addresses for your subnets.
-
-                  [Application Load Balancers on Outposts] You must specify one Outpost subnet.
-
-                  [Application Load Balancers on Local Zones] You can specify subnets from
-                  one or more Local Zones.
-
-                  [Network Load Balancers] You can specify subnets from one or more Availability
-                  Zones. You can specify one Elastic IP address per subnet if you need static
-                  IP addresses for your internet-facing load balancer. For internal load balancers,
-                  you can specify one private IP address per subnet from the IPv4 range of
-                  the subnet. For internet-facing load balancer, you can specify one IPv6 address
-                  per subnet.
-
-                  [Gateway Load Balancers] You can specify subnets from one or more Availability
-                  Zones. You can't specify Elastic IP addresses for your subnets.
                 items:
                   description: Information about a subnet mapping.
                   properties:
@@ -188,26 +131,10 @@ spec:
                   type: object
                 type: array
               subnets:
-                description: |-
-                  The IDs of the subnets. You can specify only one subnet per Availability
-                  Zone. You must specify either subnets or subnet mappings, but not both. To
-                  specify an Elastic IP address, specify subnet mappings instead of subnets.
-
-                  [Application Load Balancers] You must specify subnets from at least two Availability
-                  Zones.
-
-                  [Application Load Balancers on Outposts] You must specify one Outpost subnet.
-
-                  [Application Load Balancers on Local Zones] You can specify subnets from
-                  one or more Local Zones.
-
-                  [Network Load Balancers and Gateway Load Balancers] You can specify subnets
-                  from one or more Availability Zones.
                 items:
                   type: string
                 type: array
               tags:
-                description: The tags to assign to the load balancer.
                 items:
                   description: Information about a tag.
                   properties:
@@ -218,7 +145,6 @@ spec:
                   type: object
                 type: array
               type:
-                description: The type of load balancer. The default is application.
                 type: string
             type: object
           status:
@@ -287,7 +213,7 @@ spec:
                 type: string
               conditions:
                 description: |-
-                  All CRS managed by ACK have a common `Status.Conditions` member that
+                  All CRs managed by ACK have a common `Status.Conditions` member that
                   contains a collection of `ackv1alpha1.Condition` objects that describe
                   the various terminal states of the CR and its backend AWS service API
                   resource

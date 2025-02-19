@@ -43,7 +43,6 @@ spec:
               Information about a rule.
             properties:
               actions:
-                description: The actions.
                 items:
                   description: |-
                     Information about an action.
@@ -222,7 +221,6 @@ spec:
                   type: object
                 type: array
               conditions:
-                description: The conditions.
                 items:
                   description: |-
                     Information about a condition for a rule.
@@ -320,7 +318,6 @@ spec:
                   type: object
                 type: array
               listenerARN:
-                description: The Amazon Resource Name (ARN) of the listener.
                 type: string
               listenerRef:
                 description: "AWSResourceReferenceWrapper provides a wrapper around
@@ -340,12 +337,9 @@ spec:
                     type: object
                 type: object
               priority:
-                description: The rule priority. A listener can't have multiple rules
-                  with the same priority.
                 format: int64
                 type: integer
               tags:
-                description: The tags to assign to the rule.
                 items:
                   description: Information about a tag.
                   properties:
@@ -394,7 +388,7 @@ spec:
                 type: object
               conditions:
                 description: |-
-                  All CRS managed by ACK have a common `Status.Conditions` member that
+                  All CRs managed by ACK have a common `Status.Conditions` member that
                   contains a collection of `ackv1alpha1.Condition` objects that describe
                   the various terminal states of the CR and its backend AWS service API
                   resource

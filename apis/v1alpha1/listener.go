@@ -28,39 +28,48 @@ type ListenerSpec struct {
 	// [TLS listeners] The name of the Application-Layer Protocol Negotiation (ALPN)
 	// policy. You can specify one policy name. The following are the possible values:
 	//
-	//   - HTTP1Only
+	//    * HTTP1Only
 	//
-	//   - HTTP2Only
+	//    * HTTP2Only
 	//
-	//   - HTTP2Optional
+	//    * HTTP2Optional
 	//
-	//   - HTTP2Preferred
+	//    * HTTP2Preferred
 	//
-	//   - None
+	//    * None
 	//
 	// For more information, see ALPN policies (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#alpn-policies)
 	// in the Network Load Balancers Guide.
+
 	AlpnPolicy []*string `json:"alpnPolicy,omitempty"`
 	// [HTTPS and TLS listeners] The default certificate for the listener. You must
 	// provide exactly one certificate. Set CertificateArn to the certificate ARN
 	// but do not set IsDefault.
+
 	Certificates []*Certificate `json:"certificates,omitempty"`
 	// The actions for the default rule.
+
 	// +kubebuilder:validation:Required
+
 	DefaultActions []*Action `json:"defaultActions"`
 	// The Amazon Resource Name (ARN) of the load balancer.
-	LoadBalancerARN *string                                  `json:"loadBalancerARN,omitempty"`
+
+	LoadBalancerARN *string `json:"loadBalancerARN,omitempty"`
+
 	LoadBalancerRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"loadBalancerRef,omitempty"`
 	// The mutual authentication configuration information.
+
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 	// The port on which the load balancer is listening. You can't specify a port
 	// for a Gateway Load Balancer.
+
 	Port *int64 `json:"port,omitempty"`
 	// The protocol for connections from clients to the load balancer. For Application
 	// Load Balancers, the supported protocols are HTTP and HTTPS. For Network Load
 	// Balancers, the supported protocols are TCP, TLS, UDP, and TCP_UDP. You can’t
 	// specify the UDP or TCP_UDP protocol if dual-stack mode is enabled. You can't
 	// specify a protocol for a Gateway Load Balancer.
+
 	Protocol *string `json:"protocol,omitempty"`
 	// [HTTPS and TLS listeners] The security policy that defines which protocols
 	// and ciphers are supported.
@@ -68,8 +77,10 @@ type ListenerSpec struct {
 	// For more information, see Security policies (https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies)
 	// in the Application Load Balancers Guide and Security policies (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies)
 	// in the Network Load Balancers Guide.
+
 	SSLPolicy *string `json:"sslPolicy,omitempty"`
 	// The tags to assign to the listener.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -80,7 +91,7 @@ type ListenerStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

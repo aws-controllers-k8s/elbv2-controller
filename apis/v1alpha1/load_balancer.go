@@ -26,9 +26,11 @@ import (
 type LoadBalancerSpec struct {
 
 	// The load balancer attributes.
+
 	Attributes []*LoadBalancerAttribute `json:"attributes,omitempty"`
 	// [Application Load Balancers on Outposts] The ID of the customer-owned address
 	// pool (CoIP pool).
+
 	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`
 	// The IP address type. Internal load balancers must use ipv4.
 	//
@@ -38,12 +40,14 @@ type LoadBalancerSpec struct {
 	//
 	// [Network Load Balancers and Gateway Load Balancers] The possible values are
 	// ipv4 (IPv4 addresses) and dualstack (IPv4 and IPv6 addresses).
+
 	IPAddressType *string `json:"ipAddressType,omitempty"`
 	// The name of the load balancer.
 	//
 	// This name must be unique per region per account, can have a maximum of 32
 	// characters, must contain only alphanumeric characters or hyphens, must not
 	// begin or end with a hyphen, and must not begin with "internal-".
+
 	Name *string `json:"name,omitempty"`
 	// The nodes of an Internet-facing load balancer have public IP addresses. The
 	// DNS name of an Internet-facing load balancer is publicly resolvable to the
@@ -58,10 +62,13 @@ type LoadBalancerSpec struct {
 	// The default is an Internet-facing load balancer.
 	//
 	// You can't specify a scheme for a Gateway Load Balancer.
-	Scheme            *string                                    `json:"scheme,omitempty"`
+
+	Scheme *string `json:"scheme,omitempty"`
+
 	SecurityGroupRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"securityGroupRefs,omitempty"`
 	// [Application Load Balancers and Network Load Balancers] The IDs of the security
 	// groups for the load balancer.
+
 	SecurityGroups []*string `json:"securityGroups,omitempty"`
 	// The IDs of the subnets. You can specify only one subnet per Availability
 	// Zone. You must specify either subnets or subnet mappings, but not both.
@@ -83,8 +90,10 @@ type LoadBalancerSpec struct {
 	//
 	// [Gateway Load Balancers] You can specify subnets from one or more Availability
 	// Zones. You can't specify Elastic IP addresses for your subnets.
-	SubnetMappings []*SubnetMapping                           `json:"subnetMappings,omitempty"`
-	SubnetRefs     []*ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRefs,omitempty"`
+
+	SubnetMappings []*SubnetMapping `json:"subnetMappings,omitempty"`
+
+	SubnetRefs []*ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRefs,omitempty"`
 	// The IDs of the subnets. You can specify only one subnet per Availability
 	// Zone. You must specify either subnets or subnet mappings, but not both. To
 	// specify an Elastic IP address, specify subnet mappings instead of subnets.
@@ -99,10 +108,13 @@ type LoadBalancerSpec struct {
 	//
 	// [Network Load Balancers and Gateway Load Balancers] You can specify subnets
 	// from one or more Availability Zones.
+
 	Subnets []*string `json:"subnets,omitempty"`
 	// The tags to assign to the load balancer.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// The type of load balancer. The default is application.
+
 	Type *string `json:"type,omitempty"`
 }
 
@@ -113,7 +125,7 @@ type LoadBalancerStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

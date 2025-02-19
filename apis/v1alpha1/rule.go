@@ -26,18 +26,27 @@ import (
 type RuleSpec struct {
 
 	// The actions.
+
 	// +kubebuilder:validation:Required
+
 	Actions []*Action `json:"actions"`
 	// The conditions.
+
 	// +kubebuilder:validation:Required
+
 	Conditions []*RuleCondition `json:"conditions"`
 	// The Amazon Resource Name (ARN) of the listener.
-	ListenerARN *string                                  `json:"listenerARN,omitempty"`
+
+	ListenerARN *string `json:"listenerARN,omitempty"`
+
 	ListenerRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"listenerRef,omitempty"`
 	// The rule priority. A listener can't have multiple rules with the same priority.
+
 	// +kubebuilder:validation:Required
+
 	Priority *int64 `json:"priority"`
 	// The tags to assign to the rule.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -48,7 +57,7 @@ type RuleStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

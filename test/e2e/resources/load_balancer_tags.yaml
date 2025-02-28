@@ -1,0 +1,12 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: LoadBalancer
+metadata:
+  name: $LOAD_BALANCER_NAME
+spec:
+  name: $LOAD_BALANCER_NAME
+  subnets:
+  - $PUBLIC_SUBNET_1
+  - $PUBLIC_SUBNET_2
+  tags:
+  - key: tagKey
+    value: tagValue

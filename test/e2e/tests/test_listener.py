@@ -20,6 +20,7 @@ import time
 import pytest
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.replacement_values import REPLACEMENT_VALUES
@@ -31,7 +32,8 @@ RESOURCE_PLURAL = "listeners"
 
 CREATE_WAIT_AFTER_SECONDS = 10
 UPDATE_WAIT_AFTER_SECONDS = 10
-DELETE_WAIT_AFTER_SECONDS = 10
+DELETE_WAIT_AFTER_SECONDS = 120
+CHECK_STATUS_WAIT_SECONDS = 300
 
 @pytest.fixture(scope="module")
 def simple_listener(elbv2_client, simple_load_balancer):
@@ -86,10 +88,43 @@ class TestListener:
         validator = ELBValidator(elbv2_client)
         assert validator.listener_exists(listener_arn)
 
+        assert k8s.wait_on_condition(
+            ref,
+            "ACK.ResourceSynced",
+            "True",
+            wait_periods=CHECK_STATUS_WAIT_SECONDS // 10,
+        )
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
+
         # Update settings
         updates = {
             "spec": {
                 "port": 9000,
+                "tags": [
+                    {
+                        "key": "first",
+                        "value": "tag1"
+                    }
+                ]
             },
         }
         k8s.patch_custom_resource(ref, updates)
@@ -98,3 +133,25 @@ class TestListener:
         listener = validator.get_listener(listener_arn)
         assert listener is not None
         assert listener["Port"] == 9000
+
+        cr = k8s.get_resource(ref)
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )

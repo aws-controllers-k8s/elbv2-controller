@@ -68,4 +68,13 @@ class ELBValidator:
     def rule_exists(self, arn):
         return self.get_rule(arn) is not None
     
-
+    def get_tags(self, lb_arn):
+        try:
+            resp = self.elbv2_client.describe_tags(
+                ResourceArns=[lb_arn]
+            )
+            if len(resp['TagDescriptions']) > 0:
+                return resp['TagDescriptions'][0]['Tags']
+            return []
+        except Exception as e:
+            return None

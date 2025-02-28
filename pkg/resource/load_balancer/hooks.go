@@ -15,6 +15,7 @@ package load_balancer
 
 import (
 	"context"
+	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
@@ -22,6 +23,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
+)
+
+var(
+	RequeueAfterUpdateDuration = 5 * time.Second
 )
 
 // setResourceAdditionalFields will describe the fields that are not return by the
@@ -126,7 +132,11 @@ func (rm *resourceManager) customUpdateLoadBalancer(
 		}
 	}
 	// Leaving room for tag updates...
-	// if delta.DifferentAt("Spec.Tags") {...}
+	if delta.DifferentAt("Spec.Tags") {
+		if err := rm.updateLoadBalancerTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
 
 	return desired, nil
 }
@@ -168,4 +178,59 @@ func (rm *resourceManager) updateLoadBalancerAttributes(
 		return err
 	}
 	return nil
+}
+
+func (rm *resourceManager) getTags(
+	ctx context.Context,
+	resourceARN  string,
+) ([]*svcapitypes.Tag, error) {
+	return tags.GetResourceTags(ctx, rm.sdkapi, rm.metrics, resourceARN )
+}
+
+func (rm *resourceManager) updateTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.describeTargets")
+	defer func() { exit(err) }()
+	return tags.SyncRecourseTags(ctx, rm.sdkapi, rm.metrics, string(*desired.ko.Status.ACKResourceMetadata.ARN), desired.ko.Spec.Tags, latest.ko.Spec.Tags)
+}
+
+// updateLoadBalancerTags updates the tags of the load balancer.
+func (rm *resourceManager) updateLoadBalancerTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.updateLoadBalancerTags")
+	var err error
+	defer func() { exit(err) }()
+
+	currentTags, err := rm.getTags(
+		ctx,
+		string(*desired.ko.Status.ACKResourceMetadata.ARN),
+	)
+	if err != nil {
+		return err
+	}
+
+	desiredTags := []*svcapitypes.Tag{}
+	for _, tag := range desired.ko.Spec.Tags {
+		desiredTags = append(desiredTags, &svcapitypes.Tag{
+			Key:   tag.Key,
+			Value: tag.Value,
+		})
+	}
+
+	return tags.SyncRecourseTags(
+		ctx,
+		rm.sdkapi,
+		rm.metrics,
+		string(*desired.ko.Status.ACKResourceMetadata.ARN),
+		currentTags,
+		desiredTags,
+	)
 }

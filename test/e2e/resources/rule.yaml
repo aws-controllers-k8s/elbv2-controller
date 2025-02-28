@@ -14,3 +14,6 @@ spec:
       values:
       - GET
       - POST
+  tags:
+  - key: "tagKey"
+    value: "tagValue"

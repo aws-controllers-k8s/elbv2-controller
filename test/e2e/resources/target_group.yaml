@@ -7,3 +7,6 @@ spec:
   targetType: lambda
   targets:
   - id: $FUNCTION_ARN_1
+  tags:
+  - key: "tagKey"
+    value: "tagValue"

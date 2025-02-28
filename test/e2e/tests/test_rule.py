@@ -20,6 +20,7 @@ import time
 import pytest
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.replacement_values import REPLACEMENT_VALUES
@@ -33,7 +34,8 @@ RESOURCE_PLURAL = "rules"
 
 CREATE_WAIT_AFTER_SECONDS = 10
 UPDATE_WAIT_AFTER_SECONDS = 10
-DELETE_WAIT_AFTER_SECONDS = 10
+DELETE_WAIT_AFTER_SECONDS = 120
+CHECK_WAIT_SECONDS = 300
 
 @pytest.fixture(scope="module")
 def simple_rule(elbv2_client, simple_listener, simple_target_group, simple_load_balancer):
@@ -91,6 +93,33 @@ class TestRule:
         rule = validator.get_rule(rule_arn)
         assert rule is not None
 
+        assert k8s.wait_on_condition(
+            ref,
+            "ACK.ResourceSynced",
+            "True",
+            wait_periods=CHECK_STATUS_WAIT_SECONDS // 10,
+        )
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = distribution.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
+
         # Update settings
         updates = {
             "spec": {
@@ -100,7 +129,13 @@ class TestRule:
                     "httpRequestMethodConfig": {
                         "values": ["GET"]
                     }
-                }]
+                }],
+                "tags": [
+                    {
+                        "key": "first",
+                        "value": "tag1"
+                    }
+                ]
             },
         }
 
@@ -112,3 +147,25 @@ class TestRule:
         assert rule["Priority"] == "500"
         assert rule["Conditions"][0]["Field"] == "http-request-method"
         assert rule["Conditions"][0]["HttpRequestMethodConfig"]["Values"] == ["GET"]
+
+        cr = k8s.get_resource(ref)
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )

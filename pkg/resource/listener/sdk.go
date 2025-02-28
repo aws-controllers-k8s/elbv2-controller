@@ -322,6 +322,8 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	ko.Spec.Tags, err = rm.getTags(ctx, string(*ko.Status.ACKResourceMetadata.ARN))
+
 	return &resource{ko}, nil
 }
 
@@ -601,8 +603,11 @@ func (rm *resourceManager) sdkCreate(
 	if !found {
 		return nil, ackerr.NotFound
 	}
-
 	rm.setStatusDefaults(ko)
+	if ko.Spec.Tags != nil {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to tags in CREATE"), RequeueAfterUpdateDuration)
+	}
+	
 	return &resource{ko}, nil
 }
 
@@ -855,6 +860,17 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+
+	if delta.DifferentAt("Spec.Tags") {
+		err = rm.updateTags(ctx, desired, latest)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentAt("Spec.Tags") {
+		return desired, nil
+	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err

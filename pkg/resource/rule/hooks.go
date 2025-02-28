@@ -17,16 +17,20 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"time"
 
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
 )
 
 var (
 	// ErrInvalidPriority is an error that is returned when the priority value is invalid.
 	ErrInvalidPriority = errors.New("invalid priority value")
+	RequeueAfterUpdateDuration = 5 * time.Second
 )
 
 // setRulePriority sets the priority of the rule.
@@ -80,4 +84,22 @@ func int32OrNil(val *int64) *int32 {
 		return aws.Int32(int32(*val))
 	}
 	return nil
+}
+
+func (rm *resourceManager) getTags(
+	ctx context.Context,
+	resourceARN  string,
+) ([]*svcapitypes.Tag, error) {
+	return tags.GetResourceTags(ctx, rm.sdkapi, rm.metrics, resourceARN )
+}
+
+func (rm *resourceManager) updateTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.describeTargets")
+	defer func() { exit(err) }()
+	return tags.SyncRecourseTags(ctx, rm.sdkapi, rm.metrics, string(*desired.ko.Status.ACKResourceMetadata.ARN), desired.ko.Spec.Tags, latest.ko.Spec.Tags)
 }

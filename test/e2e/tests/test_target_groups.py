@@ -20,6 +20,7 @@ import time
 import pytest
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.replacement_values import REPLACEMENT_VALUES
@@ -29,7 +30,8 @@ RESOURCE_PLURAL = "targetgroups"
 
 CREATE_WAIT_AFTER_SECONDS = 30
 UPDATE_WAIT_AFTER_SECONDS = 20
-DELETE_WAIT_AFTER_SECONDS = 10
+DELETE_WAIT_AFTER_SECONDS = 120
+CHECK_STATUS_WAIT_SECONDS = 300
 
 @pytest.fixture(scope="module")
 def simple_target_group(elbv2_client):
@@ -91,6 +93,34 @@ class TestTargetGroups:
         targets = validator.get_registered_targets(resource_arn)
         assert len(targets) == 1
         assert targets[0]["Target"]["Id"] == REPLACEMENT_VALUES["FUNCTION_ARN_1"]
+
+        assert k8s.wait_on_condition(
+            ref,
+            "ACK.ResourceSynced",
+            "True",
+            wait_periods=CHECK_STATUS_WAIT_SECONDS // 10,
+        )
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
+
         # Update healthyThresholdCount
         updates = {
             "spec": {
@@ -98,6 +128,12 @@ class TestTargetGroups:
                 "targets": [
                     {
                         "id": REPLACEMENT_VALUES["FUNCTION_ARN_2"],
+                    }
+                ],
+                "tags": [
+                    {
+                        "key": "first",
+                        "value": "tag1"
                     }
                 ]
             },
@@ -121,3 +157,25 @@ class TestTargetGroups:
 
         targets = validator.get_registered_targets(resource_arn)
         assert len(targets) == 0
+
+        cr = k8s.get_resource(ref)
+
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )

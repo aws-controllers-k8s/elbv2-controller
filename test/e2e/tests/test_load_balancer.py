@@ -20,6 +20,7 @@ import time
 import pytest
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.replacement_values import REPLACEMENT_VALUES
@@ -41,6 +42,46 @@ def simple_load_balancer(elbv2_client):
 
     resource_data = load_elbv2_resource(
         "load_balancer",
+        additional_replacements=replacements,
+    )
+    logging.debug(resource_data)
+
+    # Create k8s resource
+    ref = k8s.CustomResourceReference(
+        CRD_GROUP, CRD_VERSION, RESOURCE_PLURAL,
+        resource_name, namespace="default",
+    )
+    k8s.create_custom_resource(ref, resource_data)
+
+    time.sleep(CREATE_WAIT_AFTER_SECONDS)
+    cr = k8s.wait_resource_consumed_by_controller(ref)
+
+    assert cr is not None
+    assert k8s.get_resource_exists(ref)
+
+    yield (ref, cr, resource_name)
+
+    _, deleted = k8s.delete_custom_resource(
+        ref,
+        period_length=DELETE_WAIT_AFTER_SECONDS,
+    )
+    assert deleted
+
+    time.sleep(DELETE_WAIT_AFTER_SECONDS)
+
+    validator = ELBValidator(elbv2_client)
+    assert not validator.load_balancer_exists(resource_name)
+
+@pytest.fixture(scope="module")
+def load_balancer_tags(elbv2_client):
+
+    resource_name = random_suffix_name("lb", 16)
+
+    replacements = REPLACEMENT_VALUES.copy()
+    replacements["LOAD_BALANCER_NAME"] = resource_name
+
+    resource_data = load_elbv2_resource(
+        "load_balancer_tags",
         additional_replacements=replacements,
     )
     logging.debug(resource_data)
@@ -105,3 +146,88 @@ class TestLoadBalancer:
                 break
         else:
             assert False, "Attribute not found"
+
+        # tests create, update and delete tags
+    def test_tag_update(self, elbv2_client, load_balancer_tags):
+        (ref, cr, lb_name) = simple_load_balancer
+        assert lb_name is not None
+
+        validator = ELBValidator(elbv2_client)
+        assert validator.load_balancer_exists(lb_name)
+
+        # initial tags
+        initial = {
+            "spec": {
+                "tags": [
+                    {
+                        "key": "first",
+                        "value": "tag1"
+                    },
+                    {
+                        "key": "second",
+                        "value": "tag2"
+                    },
+                ]
+            }
+        }
+        k8s.patch_custom_resource(ref, initial)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        # Get tags from AWS
+        lbtags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbtags is not None
+
+        # converting lbtags, a list of dictionaries, to a dictionary
+        actual_tags = {}
+        for tag in lbtags:
+            tag_key = tag["Key"]     
+            tag_value = tag["Value"]
+
+            actual_tags[tag_key] = tag_value
+
+        expected_tags = {
+            "first": "tag1",
+            "second": "tag2",
+        }        
+        assert actual_tags == expected_tags
+        # update tags
+        updated = {
+            "spec": {
+                "tags": [
+                    {
+                        "key": "first",
+                        "value": "updated_value"
+                    },
+                    {
+                        "key": "second",
+                        "value": "tag2"
+                    }
+                    ,{
+                        "key": "third",
+                        "value": "tag3"
+                    }
+                ]
+            }
+        }
+
+        k8s.patch_custom_resource(ref, updated)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        # Get tags from AWS
+        lbtags = validator.get_load_balancer_tags(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbtags is not None
+
+        # converting lbtags, a list of dictionaries, to a dictionary
+        actual_tags = {}
+        for tag in lbtags:
+            tag_key = tag["Key"]     
+            tag_value = tag["Value"]
+
+            actual_tags[tag_key] = tag_value
+
+        expected_tags = {
+            "first": "updated_value",
+            "second": "tag2",
+            "third": "tag3"
+        }        
+        assert actual_tags == expected_tags

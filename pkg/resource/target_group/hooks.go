@@ -25,6 +25,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+
+	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
 )
 
 var (
@@ -218,4 +220,22 @@ func extractTargetDescription(targetHealth []*svcsdktypes.TargetHealthDescriptio
 		convertedTarget = append(convertedTarget, td)
 	}
 	return convertedTarget
+}
+
+func (rm *resourceManager) getTags(
+	ctx context.Context,
+	resourceARN  string,
+) ([]*svcapitypes.Tag, error) {
+	return tags.GetResourceTags(ctx, rm.sdkapi, rm.metrics, resourceARN )
+}
+
+func (rm *resourceManager) updateTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.describeTargets")
+	defer func() { exit(err) }()
+	return tags.SyncRecourseTags(ctx, rm.sdkapi, rm.metrics, string(*desired.ko.Status.ACKResourceMetadata.ARN), desired.ko.Spec.Tags, latest.ko.Spec.Tags)
 }

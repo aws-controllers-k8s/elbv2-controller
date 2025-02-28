@@ -15,3 +15,6 @@ spec:
   loadBalancerARN: $LOAD_BALANCER_ARN
   port: 80
   protocol: "HTTP"
+  tags:
+  - key: tagKey
+    value: tagValue

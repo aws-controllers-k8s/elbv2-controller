@@ -210,6 +210,10 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
+	ko.Spec.Tags, err = rm.getTags(ctx, string(*ko.Status.ACKResourceMetadata.ARN))
+	if err != nil {
+		return nil, err
+	}
 
 	return &resource{ko}, nil
 }
@@ -386,6 +390,10 @@ func (rm *resourceManager) sdkCreate(
 		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
 	}
 
+	rm.setStatusDefaults(ko)
+	if ko.Spec.Tags != nil {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to tags in CREATE"), RequeueAfterUpdateDuration)
+	}
 	return &resource{ko}, nil
 }
 
@@ -508,6 +516,17 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
+
+	if delta.DifferentAt("Spec.Tags") {
+		err = rm.updateTags(ctx, desired, latest)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !delta.DifferentAt("Spec.Tags") {
+		return desired, nil
+	}
+	
 	if delta.DifferentAt("Spec.Targets") {
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
 		arn := (string)(*latest.ko.Status.ACKResourceMetadata.ARN)

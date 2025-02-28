@@ -215,6 +215,10 @@ func (rm *resourceManager) sdkFind(
 	if err := rm.setResourceAdditionalFields(ctx, ko); err != nil {
 		return nil, err
 	}
+	ko.Spec.Tags, err = rm.getTags(ctx, string(*ko.Status.ACKResourceMetadata.ARN))
+	if err != nil {
+		return nil, err
+	}
 
 	return &resource{ko}, nil
 }
@@ -396,6 +400,9 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	if ko.Spec.Tags != nil {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to tags in CREATE"), RequeueAfterUpdateDuration)
+	}
 	return &resource{ko}, nil
 }
 

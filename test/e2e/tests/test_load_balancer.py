@@ -20,6 +20,7 @@ import time
 import pytest
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
+from acktest import tags
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.replacement_values import REPLACEMENT_VALUES
@@ -81,6 +82,19 @@ class TestLoadBalancer:
         validator = ELBValidator(elbv2_client)
         assert validator.load_balancer_exists(lb_name)
 
+        # Check read initial tags
+        lbTags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbTags is not None
+
+        actual_lbTags = {}
+        for tag in lbTags:
+            actual_lbTags[tag["key"]]  = tag.get("value","")    
+
+        expected_lbTags = {
+            "tagKey": "tagValue",
+        }    
+        assert actual_lbTags == expected_lbTags
+
         # Update attributes
         updates = {
             "spec": {
@@ -88,6 +102,16 @@ class TestLoadBalancer:
                     {
                         "key": "client_keep_alive.seconds",
                         "value": "4200"
+                    }
+                ],
+                "tags": [
+                    {
+                        "key": "updatedTagKey",
+                        "value": "updatedTagValue"
+                    },
+                    {
+                        "key": "new_tagKey",
+                        "value": "new_tagValue"
                     }
                 ]
             },
@@ -105,3 +129,17 @@ class TestLoadBalancer:
                 break
         else:
             assert False, "Attribute not found"
+        
+        # Check the updated tags
+        lbtags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbtags is not None
+
+        actual_lbTags = {}
+        for tag in lbTags:
+            actual_lbTags[tag["key"]]  = tag.get("value","")    
+
+        expected_lbTags = {
+            "updated_tagKey": "updated_tagValue",
+            "new_tagKey": "new_tagValue",
+        }        
+        assert actual_lbTags == expected_lbTags

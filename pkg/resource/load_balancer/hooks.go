@@ -17,12 +17,12 @@ import (
 	"context"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
 )
 
 // setResourceAdditionalFields will describe the fields that are not return by the
@@ -186,9 +186,9 @@ func (rm *resourceManager) updateLoadBalancerTags(
 	defer func() { exit(err) }()
 
 	currentTags, err := tags.GetResourceTags(
-		ctx, 
-		rm.sdkapi, 
-		rm.metrics, 
+		ctx,
+		rm.sdkapi,
+		rm.metrics,
 		string(*latest.ko.Status.ACKResourceMetadata.ARN))
 	if err != nil {
 		return err

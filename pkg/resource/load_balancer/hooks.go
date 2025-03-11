@@ -17,6 +17,7 @@ import (
 	"context"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -125,8 +126,11 @@ func (rm *resourceManager) customUpdateLoadBalancer(
 			return nil, err
 		}
 	}
-	// Leaving room for tag updates...
-	// if delta.DifferentAt("Spec.Tags") {...}
+	if delta.DifferentAt("Spec.Tags") {
+		if err := rm.updateLoadBalancerTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
 
 	return desired, nil
 }
@@ -168,4 +172,42 @@ func (rm *resourceManager) updateLoadBalancerAttributes(
 		return err
 	}
 	return nil
+}
+
+// updateLoadBalancerTags updates the tags of the load balancer.
+func (rm *resourceManager) updateLoadBalancerTags(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.updateLoadBalancerTags")
+	var err error
+	defer func() { exit(err) }()
+
+	currentTags, err := tags.GetResourceTags(
+		ctx,
+		rm.sdkapi,
+		rm.metrics,
+		string(*latest.ko.Status.ACKResourceMetadata.ARN))
+	if err != nil {
+		return err
+	}
+
+	desiredTags := []*svcapitypes.Tag{}
+	for _, tag := range desired.ko.Spec.Tags {
+		desiredTags = append(desiredTags, &svcapitypes.Tag{
+			Key:   tag.Key,
+			Value: tag.Value,
+		})
+	}
+
+	return tags.SyncRecourseTags(
+		ctx,
+		rm.sdkapi,
+		rm.metrics,
+		string(*desired.ko.Status.ACKResourceMetadata.ARN),
+		currentTags,
+		desiredTags,
+	)
 }

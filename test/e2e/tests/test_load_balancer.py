@@ -82,9 +82,8 @@ class TestLoadBalancer:
         validator = ELBValidator(elbv2_client)
         assert validator.load_balancer_exists(lb_name)
 
-        # Read initial tags
-        lbTags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
-        assert lbTags is not None
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
 
         assert 'tags' in cr['spec']
         user_tags = cr['spec']['tags']

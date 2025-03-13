@@ -82,6 +82,12 @@ class TestLoadBalancer:
         validator = ELBValidator(elbv2_client)
         assert validator.load_balancer_exists(lb_name)
 
+    
+        cr = k8s.get_resource(ref)
+        
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
         assert 'arn' in cr['status']['ackResourceMetadata']
         arn = cr['status']['ackResourceMetadata']['arn']
 
@@ -137,6 +143,14 @@ class TestLoadBalancer:
                 break
         else:
             assert False, "Attribute not found"
+
+        cr = k8s.get_resource(ref)
+
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
         
         assert 'tags' in cr['spec']
         user_tags = cr['spec']['tags']

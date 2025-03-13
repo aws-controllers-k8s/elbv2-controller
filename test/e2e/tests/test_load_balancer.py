@@ -91,14 +91,17 @@ class TestLoadBalancer:
 
         response_tags = validator.get_tags(arn)
 
+        assert 'Tags' in response_tags
+        actual_tags = response_tags["Tags"]
+
         tags.assert_ack_system_tags(
-            tags=response_tags,
+            tags=actual_tags,
         )
 
         user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
         tags.assert_equal_without_ack_tags(
             expected=user_tags,
-            actual=response_tags,
+            actual=actual_tags,
         )
 
         # Update attributes
@@ -141,12 +144,15 @@ class TestLoadBalancer:
 
         response_tags = validator.get_tags(arn)
 
+        assert 'Tags' in response_tags
+        actual_tags = response_tags["Tags"]
+
         tags.assert_ack_system_tags(
-            tags=response_tags,
+            tags=actual_tags,
         )
 
         user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
         tags.assert_equal_without_ack_tags(
             expected=user_tags,
-            actual=response_tags,
+            actual=actual_tags,
         )

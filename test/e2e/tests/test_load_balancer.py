@@ -86,14 +86,20 @@ class TestLoadBalancer:
         lbTags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
         assert lbTags is not None
 
-        actual_lbTags = {}
-        for tag in lbTags:
-            actual_lbTags[tag["key"]]  = tag.get("value","")    
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
 
-        expected_lbTags = {
-            "tagKey": "tagValue",
-        }    
-        assert actual_lbTags == expected_lbTags
+        response_tags = validator.get_tags(arn)
+
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )
 
         # Update attributes
         updates = {
@@ -130,16 +136,17 @@ class TestLoadBalancer:
         else:
             assert False, "Attribute not found"
         
-        # check the updated tags
-        lbtags = validator.get_tags(cr["status"]["ackResourceMetadata"]["arn"])
-        assert lbtags is not None
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
 
-        actual_lbTags = {}
-        for tag in lbTags:
-            actual_lbTags[tag["key"]]  = tag.get("value","")    
+        response_tags = validator.get_tags(arn)
 
-        expected_lbTags = {
-            "updated_tagKey": "updated_tagValue",
-            "new_tagKey": "new_tagValue",
-        }        
-        assert actual_lbTags == expected_lbTags
+        tags.assert_ack_system_tags(
+            tags=response_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=response_tags,
+        )

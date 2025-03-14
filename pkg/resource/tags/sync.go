@@ -19,8 +19,8 @@ import (
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	ackutil "github.com/aws-controllers-k8s/runtime/pkg/util"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
@@ -84,13 +84,27 @@ func SyncRecourseTags(
 	resourceARN string,
 	currentTags []*svcapitypes.Tag,
 	desiredTags []*svcapitypes.Tag,
-) error {
-	var err error
+	ToACKTags func(tags []*svcapitypes.Tag) acktags.Tags,
+	FromACKTags func(tags acktags.Tags) []*svcapitypes.Tag,
+) (err error) {
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("SyncRecourseTags")
 	defer func() { exit(err) }()
 
-	addedOrUpdated, removed := computeTagsDelta(currentTags, desiredTags)
+	from := ToACKTags(currentTags)
+	to := ToACKTags(desiredTags)
+
+	toAdd, _, toRemove := ackcompare.GetTagsDifference(from, to)
+
+	addedOrUpdated := FromACKTags(toAdd)
+	removeList := FromACKTags(toRemove)
+
+	var removed []string
+	for _, tag := range removeList {
+		if tag.Key != nil {
+			removed = append(removed, *tag.Key)
+		}
+	}
 
 	if len(removed) > 0 {
 		_, err = client.RemoveTags(ctx, &svcsdk.RemoveTagsInput{
@@ -114,43 +128,6 @@ func SyncRecourseTags(
 		}
 	}
 	return nil
-}
-
-// computeTagsDelta compares two Tag arrays and return two different list
-// containing the addedOrupdated and removed tags. The removed tags array
-// only contains the tags Keys.
-func computeTagsDelta(
-	a []*svcapitypes.Tag,
-	b []*svcapitypes.Tag,
-) (addedOrUpdated []*svcapitypes.Tag, removed []string) {
-	var visitedIndexes []string
-mainLoop:
-	for _, aElement := range a {
-		visitedIndexes = append(visitedIndexes, *aElement.Key)
-		for _, bElement := range b {
-			if equalStrings(aElement.Key, bElement.Key) {
-				if !equalStrings(aElement.Value, bElement.Value) {
-					addedOrUpdated = append(addedOrUpdated, bElement)
-				}
-				continue mainLoop
-			}
-		}
-		removed = append(removed, *aElement.Key)
-	}
-	for _, bElement := range b {
-		if !ackutil.InStrings(*bElement.Key, visitedIndexes) {
-			addedOrUpdated = append(addedOrUpdated, bElement)
-		}
-	}
-	return addedOrUpdated, removed
-}
-
-// equal strings
-func equalStrings(a, b *string) bool {
-	if a == nil {
-		return b == nil || *b == ""
-	}
-	return (*a == "" && b == nil) || *a == *b
 }
 
 // svcTagsFromResourceTags transforms a *svcapitypes.Tag array to a *svcsdk.Tag array.

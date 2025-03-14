@@ -310,9 +310,9 @@ func (rm *resourceManager) FilterSystemTags(res acktypes.AWSResource) {
 	}
 	var existingTags []*svcapitypes.Tag
 	existingTags = r.ko.Spec.Tags
-	resourceTags, tagKeyOrder := toACKTagsWithKeyOrder(existingTags)
+	resourceTags := ToACKTags(existingTags)
 	ignoreSystemTags(resourceTags)
-	r.ko.Spec.Tags = fromACKTagsWithKeyOrder(resourceTags, tagKeyOrder)
+	r.ko.Spec.Tags = FromACKTags(resourceTags)
 }
 
 // mirrorAWSTags ensures that AWS tags are included in the desired resource
@@ -334,10 +334,10 @@ func mirrorAWSTags(a *resource, b *resource) {
 	var existingDesiredTags []*svcapitypes.Tag
 	existingDesiredTags = a.ko.Spec.Tags
 	existingLatestTags = b.ko.Spec.Tags
-	desiredTags, desiredTagKeyOrder := toACKTagsWithKeyOrder(existingDesiredTags)
-	latestTags, _ := toACKTagsWithKeyOrder(existingLatestTags)
+	desiredTags := ToACKTags(existingDesiredTags)
+	latestTags := ToACKTags(existingLatestTags)
 	syncAWSTags(desiredTags, latestTags)
-	a.ko.Spec.Tags = fromACKTagsWithKeyOrder(desiredTags, desiredTagKeyOrder)
+	a.ko.Spec.Tags = FromACKTags(desiredTags)
 }
 
 // newResourceManager returns a new struct implementing

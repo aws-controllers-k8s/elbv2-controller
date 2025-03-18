@@ -215,7 +215,7 @@ func (rm *resourceManager) updateLoadBalancerTags(
 		string(*desired.ko.Status.ACKResourceMetadata.ARN),
 		currentTags,
 		desiredTags,
-		ToACKTags,
-		FromACKTags,
+		convertToOrderedACKTags,
+		fromACKTags,
 	)
 }

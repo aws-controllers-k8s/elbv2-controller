@@ -91,8 +91,8 @@ func SyncRecourseTags(
 	exit := rlog.Trace("SyncRecourseTags")
 	defer func() { exit(err) }()
 
-	from := ToACKTags(currentTags)
-	to := ToACKTags(desiredTags)
+	from, _ := ToACKTags(currentTags)
+	to, _ := ToACKTags(desiredTags)
 
 	toAdd, _, toRemove := ackcompare.GetTagsDifference(from, to)
 

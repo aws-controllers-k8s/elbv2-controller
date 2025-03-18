@@ -84,25 +84,23 @@ func SyncRecourseTags(
 	resourceARN string,
 	currentTags []*svcapitypes.Tag,
 	desiredTags []*svcapitypes.Tag,
-	toACKTags func(tags []*svcapitypes.Tag) (acktags.Tags, []string),
-	FromACKTags func(tags acktags.Tags) []*svcapitypes.Tag,
+	convertToOrderedACKTags func(tags []*svcapitypes.Tag) (acktags.Tags, []string),
+	fromACKTags func(tags acktags.Tags, keyOrder []string) []*svcapitypes.Tag,
 ) (err error) {
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("SyncRecourseTags")
 	defer func() { exit(err) }()
 
-	from, _ := ToACKTags(currentTags)
-	to, _ := ToACKTags(desiredTags)
+	desiredACKTags, _ := convertToOrderedACKTags(currentTags)
+	currentACKTags, _ := convertToOrderedACKTags(desiredTags)
 
-	toAdd, _, toRemove := ackcompare.GetTagsDifference(from, to)
-
-	addedOrUpdated := FromACKTags(toAdd)
-	removeList := FromACKTags(toRemove)
+	added, _, toRemove := ackcompare.GetTagsDifference(desiredACKTags, currentACKTags)
 
 	var removed []string
-	for _, tag := range removeList {
-		if tag.Key != nil {
-			removed = append(removed, *tag.Key)
+	for key := range toRemove {
+		if _, ok := added[key]; ok {
+			delete(toRemove, key)
+			removed = append(removed, key)
 		}
 	}
 
@@ -117,10 +115,18 @@ func SyncRecourseTags(
 		}
 	}
 
-	if len(addedOrUpdated) > 0 {
+	if len(added) > 0 {
+		addedOrUpdated := make([]svcsdktypes.Tag, 0, len(added))
+		for key, val := range added {
+			key, val := key, val
+			addedOrUpdated = append(addedOrUpdated, svcsdktypes.Tag{
+				Key:   &key,
+				Value: &val,
+			})
+		}
 		_, err = client.AddTags(ctx, &svcsdk.AddTagsInput{
 			ResourceArns: []string{resourceARN},
-			Tags:         sdkTagsFromResourceTags(addedOrUpdated),
+			Tags:         addedOrUpdated,
 		})
 		mr.RecordAPICall("UPDATE", "AddTags", err)
 		if err != nil {
@@ -128,16 +134,4 @@ func SyncRecourseTags(
 		}
 	}
 	return nil
-}
-
-// svcTagsFromResourceTags transforms a *svcapitypes.Tag array to a *svcsdk.Tag array.
-func sdkTagsFromResourceTags(rTags []*svcapitypes.Tag) []svcsdktypes.Tag {
-	tags := make([]svcsdktypes.Tag, len(rTags))
-	for i := range rTags {
-		tags[i] = svcsdktypes.Tag{
-			Key:   rTags[i].Key,
-			Value: rTags[i].Value,
-		}
-	}
-	return tags
 }

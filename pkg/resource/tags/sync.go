@@ -84,7 +84,7 @@ func SyncRecourseTags(
 	resourceARN string,
 	currentTags []*svcapitypes.Tag,
 	desiredTags []*svcapitypes.Tag,
-	ToACKTags func(tags []*svcapitypes.Tag) acktags.Tags,
+	toACKTags func(tags []*svcapitypes.Tag) (acktags.Tags, []string),
 	FromACKTags func(tags acktags.Tags) []*svcapitypes.Tag,
 ) (err error) {
 	rlog := ackrtlog.FromContext(ctx)

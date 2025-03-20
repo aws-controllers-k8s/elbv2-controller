@@ -98,9 +98,7 @@ func SyncRecourseTags(
 
 	var removed []string
 	for key := range toRemove {
-		if _, ok := added[key]; ok {
-			removed = append(removed, key)
-		}
+		removed = append(removed, key)
 	}
 
 	if len(removed) > 0 {

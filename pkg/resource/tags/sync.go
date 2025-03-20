@@ -91,15 +91,14 @@ func SyncRecourseTags(
 	exit := rlog.Trace("SyncRecourseTags")
 	defer func() { exit(err) }()
 
-	desiredACKTags, _ := convertToOrderedACKTags(currentTags)
-	currentACKTags, _ := convertToOrderedACKTags(desiredTags)
+	currentACKTags, _ := convertToOrderedACKTags(currentTags)
+	desiredACKTags, _ := convertToOrderedACKTags(desiredTags)
 
-	added, _, toRemove := ackcompare.GetTagsDifference(desiredACKTags, currentACKTags)
+	added, _, toRemove := ackcompare.GetTagsDifference(currentACKTags, desiredACKTags)
 
 	var removed []string
 	for key := range toRemove {
 		if _, ok := added[key]; ok {
-			delete(toRemove, key)
 			removed = append(removed, key)
 		}
 	}
@@ -118,10 +117,10 @@ func SyncRecourseTags(
 	if len(added) > 0 {
 		addedOrUpdated := make([]svcsdktypes.Tag, 0, len(added))
 		for key, val := range added {
-			key, val := key, val
+			k, v := key, val
 			addedOrUpdated = append(addedOrUpdated, svcsdktypes.Tag{
-				Key:   &key,
-				Value: &val,
+				Key:   &k,
+				Value: &v,
 			})
 		}
 		_, err = client.AddTags(ctx, &svcsdk.AddTagsInput{

@@ -216,6 +216,10 @@ func (rm *resourceManager) sdkFind(
 		return nil, err
 	}
 
+	ko.Spec.Tags, err = rm.getTags(ctx, string(*ko.Status.ACKResourceMetadata.ARN))
+	if err != nil {
+		return nil, err
+	}
 	return &resource{ko}, nil
 }
 

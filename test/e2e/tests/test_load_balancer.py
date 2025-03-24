@@ -19,6 +19,7 @@ import time
 
 import pytest
 from acktest.k8s import resource as k8s
+from acktest import tags
 from acktest.resources import random_suffix_name
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
 from e2e.bootstrap_resources import get_bootstrap_resources
@@ -81,6 +82,15 @@ class TestLoadBalancer:
         validator = ELBValidator(elbv2_client)
         assert validator.load_balancer_exists(lb_name)
 
+    
+        cr = k8s.get_resource(ref)
+        
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
         # Update attributes
         updates = {
             "spec": {
@@ -105,3 +115,79 @@ class TestLoadBalancer:
                 break
         else:
             assert False, "Attribute not found"
+
+
+    def test_tags(self, elbv2_client, simple_load_balancer):
+        (ref, cr, lb_name) = simple_load_balancer
+        assert lb_name is not None
+
+        validator = ELBValidator(elbv2_client)
+        assert validator.load_balancer_exists(lb_name)
+
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        assert 'Tags' in response_tags
+        actual_tags = response_tags["Tags"]
+
+        tags.assert_ack_system_tags(
+            tags=actual_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=actual_tags,
+        )
+
+        # Update attributes
+        updates = {
+            "spec": {
+                "tags": [
+                    {
+                        "key": "updated_tagKey",
+                        "value": "updated_tagValue"
+                    },
+                    {
+                        "key": "new_tagKey",
+                        "value": "new_tagValue"
+                    }
+                ]
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+        
+        assert 'tags' in cr['spec']
+        user_tags = cr['spec']['tags']
+
+        response_tags = validator.get_tags(arn)
+
+        assert 'Tags' in response_tags
+        actual_tags = response_tags["Tags"]
+
+        tags.assert_ack_system_tags(
+            tags=actual_tags,
+        )
+
+        user_tags = [{"Key": d["key"], "Value": d["value"]} for d in user_tags]
+        tags.assert_equal_without_ack_tags(
+            expected=user_tags,
+            actual=actual_tags,
+        )

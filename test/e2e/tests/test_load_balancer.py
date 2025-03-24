@@ -91,6 +91,46 @@ class TestLoadBalancer:
         assert 'arn' in cr['status']['ackResourceMetadata']
         arn = cr['status']['ackResourceMetadata']['arn']
 
+        # Update attributes
+        updates = {
+            "spec": {
+                "attributes": [
+                    {
+                        "key": "client_keep_alive.seconds",
+                        "value": "4200"
+                    }
+                ]
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        lbAttributes = validator.get_load_balancer_attributes(cr["status"]["ackResourceMetadata"]["arn"])
+        assert lbAttributes is not None
+
+        # find the attribute we just updated
+        for attribute in lbAttributes:
+            if attribute["Key"] == "client_keep_alive.seconds":
+                assert attribute["Value"] == "4200"
+                break
+        else:
+            assert False, "Attribute not found"
+
+
+    def test_tags(self, elbv2_client, simple_load_balancer):
+        (ref, cr, lb_name) = simple_load_balancer
+        assert lb_name is not None
+
+        validator = ELBValidator(elbv2_client)
+        assert validator.load_balancer_exists(lb_name)
+
+        cr = k8s.get_resource(ref)
+        assert cr is not None
+        assert 'status' in cr
+        assert 'ackResourceMetadata' in cr['status']
+        assert 'arn' in cr['status']['ackResourceMetadata']
+        arn = cr['status']['ackResourceMetadata']['arn']
+
         assert 'tags' in cr['spec']
         user_tags = cr['spec']['tags']
 
@@ -112,16 +152,10 @@ class TestLoadBalancer:
         # Update attributes
         updates = {
             "spec": {
-                "attributes": [
-                    {
-                        "key": "client_keep_alive.seconds",
-                        "value": "4200"
-                    }
-                ],
                 "tags": [
                     {
-                        "key": "updatedTagKey",
-                        "value": "updatedTagValue"
+                        "key": "updated_tagKey",
+                        "value": "updated_tagValue"
                     },
                     {
                         "key": "new_tagKey",
@@ -133,19 +167,7 @@ class TestLoadBalancer:
         k8s.patch_custom_resource(ref, updates)
         time.sleep(UPDATE_WAIT_AFTER_SECONDS)
 
-        lbAttributes = validator.get_load_balancer_attributes(cr["status"]["ackResourceMetadata"]["arn"])
-        assert lbAttributes is not None
-
-        # find the attribute we just updated
-        for attribute in lbAttributes:
-            if attribute["Key"] == "client_keep_alive.seconds":
-                assert attribute["Value"] == "4200"
-                break
-        else:
-            assert False, "Attribute not found"
-
         cr = k8s.get_resource(ref)
-
         assert cr is not None
         assert 'status' in cr
         assert 'ackResourceMetadata' in cr['status']

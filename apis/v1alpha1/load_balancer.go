@@ -29,6 +29,8 @@ type LoadBalancerSpec struct {
 	Attributes []*LoadBalancerAttribute `json:"attributes,omitempty"`
 	// [Application Load Balancers on Outposts] The ID of the customer-owned address
 	// pool (CoIP pool).
+	//
+	// Regex Pattern: `^(ipv4pool-coip-)[a-zA-Z0-9]+$`
 	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`
 	// The IP address type. Internal load balancers must use ipv4.
 	//

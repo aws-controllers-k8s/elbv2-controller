@@ -97,11 +97,11 @@ func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error 
 
 // PopulateResourceFromAnnotation populates the fields passed from adoption annotation
 func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) error {
-	tmp, ok := fields["loadBalancerARN"]
+	primaryKey, ok := fields["loadBalancerARN"]
 	if !ok {
 		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: loadBalancerARN"))
 	}
-	r.ko.Spec.LoadBalancerARN = &tmp
+	r.ko.Spec.LoadBalancerARN = &primaryKey
 
 	return nil
 }

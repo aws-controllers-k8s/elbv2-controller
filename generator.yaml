@@ -203,9 +203,9 @@ resources:
           output_fields:
             TargetGroupName: Name
   Rule:
+    is_arn_primary_key: true
     fields:
       ListenerArn:
-        is_primary_key: true
         references:
           resource: Listener
           path: Status.ACKResourceMetadata.ARN

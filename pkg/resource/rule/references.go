@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
+	ackcondition "github.com/aws-controllers-k8s/runtime/pkg/condition"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
 
@@ -158,8 +159,9 @@ func getReferencedResourceState_TargetGroup(
 	}
 	var refResourceTerminal bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
-			cond.Status == corev1.ConditionTrue {
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
+			cond.Status == corev1.ConditionFalse &&
+			*cond.Reason == ackcondition.TerminalReason {
 			return ackerr.ResourceReferenceTerminalFor(
 				"TargetGroup",
 				namespace, name)
@@ -170,14 +172,14 @@ func getReferencedResourceState_TargetGroup(
 			"TargetGroup",
 			namespace, name)
 	}
-	var refResourceSynced bool
+	var refResourceReady bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
 			cond.Status == corev1.ConditionTrue {
-			refResourceSynced = true
+			refResourceReady = true
 		}
 	}
-	if !refResourceSynced {
+	if !refResourceReady {
 		return ackerr.ResourceReferenceNotSyncedFor(
 			"TargetGroup",
 			namespace, name)
@@ -241,8 +243,9 @@ func getReferencedResourceState_Listener(
 	}
 	var refResourceTerminal bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
-			cond.Status == corev1.ConditionTrue {
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
+			cond.Status == corev1.ConditionFalse &&
+			*cond.Reason == ackcondition.TerminalReason {
 			return ackerr.ResourceReferenceTerminalFor(
 				"Listener",
 				namespace, name)
@@ -253,14 +256,14 @@ func getReferencedResourceState_Listener(
 			"Listener",
 			namespace, name)
 	}
-	var refResourceSynced bool
+	var refResourceReady bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
 			cond.Status == corev1.ConditionTrue {
-			refResourceSynced = true
+			refResourceReady = true
 		}
 	}
-	if !refResourceSynced {
+	if !refResourceReady {
 		return ackerr.ResourceReferenceNotSyncedFor(
 			"Listener",
 			namespace, name)

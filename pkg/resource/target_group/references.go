@@ -25,6 +25,7 @@ import (
 
 	ec2apitypes "github.com/aws-controllers-k8s/ec2-controller/apis/v1alpha1"
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
+	ackcondition "github.com/aws-controllers-k8s/runtime/pkg/condition"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
 
@@ -133,8 +134,9 @@ func getReferencedResourceState_VPC(
 	}
 	var refResourceTerminal bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
-			cond.Status == corev1.ConditionTrue {
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
+			cond.Status == corev1.ConditionFalse &&
+			*cond.Reason == ackcondition.TerminalReason {
 			return ackerr.ResourceReferenceTerminalFor(
 				"VPC",
 				namespace, name)
@@ -145,14 +147,14 @@ func getReferencedResourceState_VPC(
 			"VPC",
 			namespace, name)
 	}
-	var refResourceSynced bool
+	var refResourceReady bool
 	for _, cond := range obj.Status.Conditions {
-		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+		if cond.Type == ackv1alpha1.ConditionTypeReady &&
 			cond.Status == corev1.ConditionTrue {
-			refResourceSynced = true
+			refResourceReady = true
 		}
 	}
-	if !refResourceSynced {
+	if !refResourceReady {
 		return ackerr.ResourceReferenceNotSyncedFor(
 			"VPC",
 			namespace, name)

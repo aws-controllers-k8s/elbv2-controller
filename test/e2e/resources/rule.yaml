@@ -6,8 +6,13 @@ spec:
   priority: 300
   listenerARN: $LISTENER_ARN
   actions:
-  - type: "forward"
-    targetGroupARN: $TARGET_GROUP_ARN
+    - forwardConfig:
+        targetGroups:
+          - targetGroupRef:
+              from:
+                name: $TARGET_GROUP_NAME
+            weight: 1
+      type: forward
   conditions:
   - field: http-request-method
     httpRequestMethodConfig:

@@ -45,7 +45,7 @@ def simple_rule(elbv2_client, simple_listener, simple_target_group, simple_load_
     replacements = REPLACEMENT_VALUES.copy()
     replacements["RULE_NAME"] = resource_name
     replacements["LISTENER_ARN"] = listener_cr["status"]["ackResourceMetadata"]["arn"]
-    replacements["TARGET_GROUP_ARN"] = target_group_cr["status"]["ackResourceMetadata"]["arn"]
+    replacements["TARGET_GROUP_NAME"] = target_group_cr["spec"]["name"]
 
     resource_data = load_elbv2_resource(
         "rule",

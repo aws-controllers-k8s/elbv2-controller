@@ -213,6 +213,10 @@ resources:
         references:
           resource: TargetGroup
           path: Status.ACKResourceMetadata.ARN
+      Actions.ForwardConfig.TargetGroups.TargetGroupARN:
+        references:
+          resource: TargetGroup
+          path: Status.ACKResourceMetadata.ARN
       Priority:
         set:
         - ignore: true

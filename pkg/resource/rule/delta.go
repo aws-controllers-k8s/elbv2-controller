@@ -43,13 +43,6 @@ func newResourceDelta(
 	}
 	customPreCompare(delta, a, b)
 
-	if len(a.ko.Spec.Actions) != len(b.ko.Spec.Actions) {
-		delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
-	} else if len(a.ko.Spec.Actions) > 0 {
-		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Actions, b.ko.Spec.Actions) {
-			delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
-		}
-	}
 	if ackcompare.HasNilDifference(a.ko.Spec.ListenerARN, b.ko.Spec.ListenerARN) {
 		delta.Add("Spec.ListenerARN", a.ko.Spec.ListenerARN, b.ko.Spec.ListenerARN)
 	} else if a.ko.Spec.ListenerARN != nil && b.ko.Spec.ListenerARN != nil {

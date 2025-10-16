@@ -91,6 +91,65 @@ func customPreCompare(
 	b *resource,
 ) {
 	customCompareConditions(delta, a, b)
+	customCompareActions(delta, a, b)
+}
+
+// customCompareActions performs custom comparison for Rule actions.
+// Actions is compared manually (compare.is_ignored: true) because the AWS
+// ELBv2 API never returns the k8s-only TargetGroupRef fields and assigns an
+// Order when the user omits one. Comparing the auto-generated way would always
+// report a diff (the ref present in desired but absent in the observed state),
+// triggering a redundant ModifyRule on every reconcile. We strip the ref fields
+// and normalize the server-assigned Order before comparing; the resolved
+// TargetGroupARN is still compared so genuine drift is detected.
+func customCompareActions(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if a == nil || b == nil {
+		return
+	}
+
+	desired := a.ko.Spec.Actions
+	observed := b.ko.Spec.Actions
+	if len(desired) != len(observed) {
+		delta.Add("Spec.Actions", desired, observed)
+		return
+	}
+
+	for i := range desired {
+		d := normalizeActionForCompare(desired[i])
+		o := normalizeActionForCompare(observed[i])
+		// AWS assigns an Order when the user does not specify one, so only
+		// compare Order when it was set in the desired state.
+		if desired[i] != nil && desired[i].Order == nil {
+			o.Order = nil
+		}
+		if !equality.Semantic.Equalities.DeepEqual(d, o) {
+			delta.Add("Spec.Actions", desired, observed)
+			return
+		}
+	}
+}
+
+// normalizeActionForCompare returns a deep copy of the action with the k8s-only
+// TargetGroupRef fields removed, both at the action level and within
+// ForwardConfig.TargetGroups, so they do not produce spurious diffs.
+func normalizeActionForCompare(action *svcapitypes.Action) *svcapitypes.Action {
+	if action == nil {
+		return nil
+	}
+	a := action.DeepCopy()
+	a.TargetGroupRef = nil
+	if a.ForwardConfig != nil {
+		for j := range a.ForwardConfig.TargetGroups {
+			if a.ForwardConfig.TargetGroups[j] != nil {
+				a.ForwardConfig.TargetGroups[j].TargetGroupRef = nil
+			}
+		}
+	}
+	return a
 }
 
 // customCompareConditions performs custom comparison for Rule conditions.

@@ -209,6 +209,12 @@ resources:
         references:
           resource: Listener
           path: Status.ACKResourceMetadata.ARN
+      Actions:
+        set:
+        - ignore: true
+          method: Create
+        - ignore: true
+          method: Update
       Actions.targetGroupARN:
         references:
           resource: TargetGroup

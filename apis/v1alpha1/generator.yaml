@@ -10,8 +10,8 @@ ignore:
   - MutualAuthenticationAttributes.AdvertiseTrustStoreCaNames
   - MutualAuthenticationAttributes.TrustStoreAssociationStatus
   - AvailabilityZone.SourceNatIpv6Prefixes
-  - LoadBalancer.EnablePrefixForIpv6SourceNat
-  - CreateLoadBalancerInput.EnablePrefixForIpv6SourceNat
+  #- LoadBalancer.EnablePrefixForIpv6SourceNat
+  #- CreateLoadBalancerInput.EnablePrefixForIpv6SourceNat
   - SubnetMapping.SourceNatIpv6Prefix
 sdk_names:
   model_name: elastic-load-balancing-v2

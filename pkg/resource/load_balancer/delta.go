@@ -51,6 +51,13 @@ func newResourceDelta(
 			delta.Add("Spec.CustomerOwnedIPv4Pool", a.ko.Spec.CustomerOwnedIPv4Pool, b.ko.Spec.CustomerOwnedIPv4Pool)
 		}
 	}
+	if ackcompare.HasNilDifference(a.ko.Spec.EnablePrefixForIPv6SourceNAT, b.ko.Spec.EnablePrefixForIPv6SourceNAT) {
+		delta.Add("Spec.EnablePrefixForIPv6SourceNAT", a.ko.Spec.EnablePrefixForIPv6SourceNAT, b.ko.Spec.EnablePrefixForIPv6SourceNAT)
+	} else if a.ko.Spec.EnablePrefixForIPv6SourceNAT != nil && b.ko.Spec.EnablePrefixForIPv6SourceNAT != nil {
+		if *a.ko.Spec.EnablePrefixForIPv6SourceNAT != *b.ko.Spec.EnablePrefixForIPv6SourceNAT {
+			delta.Add("Spec.EnablePrefixForIPv6SourceNAT", a.ko.Spec.EnablePrefixForIPv6SourceNAT, b.ko.Spec.EnablePrefixForIPv6SourceNAT)
+		}
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.IPAddressType, b.ko.Spec.IPAddressType) {
 		delta.Add("Spec.IPAddressType", a.ko.Spec.IPAddressType, b.ko.Spec.IPAddressType)
 	} else if a.ko.Spec.IPAddressType != nil && b.ko.Spec.IPAddressType != nil {

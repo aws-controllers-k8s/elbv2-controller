@@ -881,6 +881,11 @@ func (in *LoadBalancerSpec) DeepCopyInto(out *LoadBalancerSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.EnablePrefixForIPv6SourceNAT != nil {
+		in, out := &in.EnablePrefixForIPv6SourceNAT, &out.EnablePrefixForIPv6SourceNAT
+		*out = new(string)
+		**out = **in
+	}
 	if in.IPAddressType != nil {
 		in, out := &in.IPAddressType, &out.IPAddressType
 		*out = new(string)
@@ -1105,6 +1110,11 @@ func (in *LoadBalancer_SDK) DeepCopyInto(out *LoadBalancer_SDK) {
 	}
 	if in.DNSName != nil {
 		in, out := &in.DNSName, &out.DNSName
+		*out = new(string)
+		**out = **in
+	}
+	if in.EnablePrefixForIPv6SourceNAT != nil {
+		in, out := &in.EnablePrefixForIPv6SourceNAT, &out.EnablePrefixForIPv6SourceNAT
 		*out = new(string)
 		**out = **in
 	}

@@ -32,6 +32,10 @@ type LoadBalancerSpec struct {
 	//
 	// Regex Pattern: `^(ipv4pool-coip-)[a-zA-Z0-9]+$`
 	CustomerOwnedIPv4Pool *string `json:"customerOwnedIPv4Pool,omitempty"`
+	// [Network Load Balancers with UDP listeners] Indicates whether to use an IPv6
+	// prefix from each subnet for source NAT. The IP address type must be dualstack.
+	// The default value is off.
+	EnablePrefixForIPv6SourceNAT *string `json:"enablePrefixForIPv6SourceNAT,omitempty"`
 	// The IP address type. Internal load balancers must use ipv4.
 	//
 	// [Application Load Balancers] The possible values are ipv4 (IPv4 addresses),

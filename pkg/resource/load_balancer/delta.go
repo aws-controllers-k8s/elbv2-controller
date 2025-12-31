@@ -17,16 +17,15 @@ package load_balancer
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -79,7 +78,7 @@ func newResourceDelta(
 			delta.Add("Spec.Scheme", a.ko.Spec.Scheme, b.ko.Spec.Scheme)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs) {
 		delta.Add("Spec.SecurityGroupRefs", a.ko.Spec.SecurityGroupRefs, b.ko.Spec.SecurityGroupRefs)
 	}
 	if len(a.ko.Spec.SecurityGroups) != len(b.ko.Spec.SecurityGroups) {
@@ -92,11 +91,11 @@ func newResourceDelta(
 	if len(a.ko.Spec.SubnetMappings) != len(b.ko.Spec.SubnetMappings) {
 		delta.Add("Spec.SubnetMappings", a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings)
 	} else if len(a.ko.Spec.SubnetMappings) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings) {
 			delta.Add("Spec.SubnetMappings", a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.SubnetRefs, b.ko.Spec.SubnetRefs) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.SubnetRefs, b.ko.Spec.SubnetRefs) {
 		delta.Add("Spec.SubnetRefs", a.ko.Spec.SubnetRefs, b.ko.Spec.SubnetRefs)
 	}
 	if len(a.ko.Spec.Subnets) != len(b.ko.Spec.Subnets) {

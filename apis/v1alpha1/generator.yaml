@@ -102,6 +102,8 @@ resources:
           resource: Subnet
           path: Status.SubnetID
           service_name: ec2
+      EnablePrefixForIPv6SourceNAT:
+        late_initialize: {}
     update_operation:
       custom_method_name: customUpdateLoadBalancer
     renames:

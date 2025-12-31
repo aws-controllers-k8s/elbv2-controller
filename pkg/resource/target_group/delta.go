@@ -17,16 +17,15 @@ package target_group
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -149,7 +148,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 	} else if len(a.ko.Spec.Tags) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
 			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 		}
 	}
@@ -174,7 +173,7 @@ func newResourceDelta(
 			delta.Add("Spec.VPCID", a.ko.Spec.VPCID, b.ko.Spec.VPCID)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.VPCRef, b.ko.Spec.VPCRef) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.VPCRef, b.ko.Spec.VPCRef) {
 		delta.Add("Spec.VPCRef", a.ko.Spec.VPCRef, b.ko.Spec.VPCRef)
 	}
 

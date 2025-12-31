@@ -17,16 +17,15 @@ package listener
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -53,14 +52,14 @@ func newResourceDelta(
 	if len(a.ko.Spec.Certificates) != len(b.ko.Spec.Certificates) {
 		delta.Add("Spec.Certificates", a.ko.Spec.Certificates, b.ko.Spec.Certificates)
 	} else if len(a.ko.Spec.Certificates) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Certificates, b.ko.Spec.Certificates) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Certificates, b.ko.Spec.Certificates) {
 			delta.Add("Spec.Certificates", a.ko.Spec.Certificates, b.ko.Spec.Certificates)
 		}
 	}
 	if len(a.ko.Spec.DefaultActions) != len(b.ko.Spec.DefaultActions) {
 		delta.Add("Spec.DefaultActions", a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions)
 	} else if len(a.ko.Spec.DefaultActions) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions) {
 			delta.Add("Spec.DefaultActions", a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions)
 		}
 	}
@@ -71,7 +70,7 @@ func newResourceDelta(
 			delta.Add("Spec.LoadBalancerARN", a.ko.Spec.LoadBalancerARN, b.ko.Spec.LoadBalancerARN)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.LoadBalancerRef, b.ko.Spec.LoadBalancerRef) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.LoadBalancerRef, b.ko.Spec.LoadBalancerRef) {
 		delta.Add("Spec.LoadBalancerRef", a.ko.Spec.LoadBalancerRef, b.ko.Spec.LoadBalancerRef)
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.MutualAuthentication, b.ko.Spec.MutualAuthentication) {
@@ -123,7 +122,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 	} else if len(a.ko.Spec.Tags) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
 			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 		}
 	}

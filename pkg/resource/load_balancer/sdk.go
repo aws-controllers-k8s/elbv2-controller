@@ -150,6 +150,11 @@ func (rm *resourceManager) sdkFind(
 		} else {
 			ko.Status.DNSName = nil
 		}
+		if elem.EnablePrefixForIpv6SourceNat != "" {
+			ko.Spec.EnablePrefixForIPv6SourceNAT = aws.String(string(elem.EnablePrefixForIpv6SourceNat))
+		} else {
+			ko.Spec.EnablePrefixForIPv6SourceNAT = nil
+		}
 		if elem.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
 			ko.Status.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = elem.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 		} else {
@@ -183,14 +188,14 @@ func (rm *resourceManager) sdkFind(
 			ko.Spec.SecurityGroups = nil
 		}
 		if elem.State != nil {
-			f11 := &svcapitypes.LoadBalancerState{}
+			f12 := &svcapitypes.LoadBalancerState{}
 			if elem.State.Code != "" {
-				f11.Code = aws.String(string(elem.State.Code))
+				f12.Code = aws.String(string(elem.State.Code))
 			}
 			if elem.State.Reason != nil {
-				f11.Reason = elem.State.Reason
+				f12.Reason = elem.State.Reason
 			}
-			ko.Status.State = f11
+			ko.Status.State = f12
 		} else {
 			ko.Status.State = nil
 		}
@@ -338,6 +343,11 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Status.DNSName = nil
 		}
+		if elem.EnablePrefixForIpv6SourceNat != "" {
+			ko.Spec.EnablePrefixForIPv6SourceNAT = aws.String(string(elem.EnablePrefixForIpv6SourceNat))
+		} else {
+			ko.Spec.EnablePrefixForIPv6SourceNAT = nil
+		}
 		if elem.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
 			ko.Status.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = elem.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 		} else {
@@ -371,14 +381,14 @@ func (rm *resourceManager) sdkCreate(
 			ko.Spec.SecurityGroups = nil
 		}
 		if elem.State != nil {
-			f11 := &svcapitypes.LoadBalancerState{}
+			f12 := &svcapitypes.LoadBalancerState{}
 			if elem.State.Code != "" {
-				f11.Code = aws.String(string(elem.State.Code))
+				f12.Code = aws.String(string(elem.State.Code))
 			}
 			if elem.State.Reason != nil {
-				f11.Reason = elem.State.Reason
+				f12.Reason = elem.State.Reason
 			}
-			ko.Status.State = f11
+			ko.Status.State = f12
 		} else {
 			ko.Status.State = nil
 		}
@@ -414,6 +424,9 @@ func (rm *resourceManager) newCreateRequestPayload(
 	if r.ko.Spec.CustomerOwnedIPv4Pool != nil {
 		res.CustomerOwnedIpv4Pool = r.ko.Spec.CustomerOwnedIPv4Pool
 	}
+	if r.ko.Spec.EnablePrefixForIPv6SourceNAT != nil {
+		res.EnablePrefixForIpv6SourceNat = svcsdktypes.EnablePrefixForIpv6SourceNatEnum(*r.ko.Spec.EnablePrefixForIPv6SourceNAT)
+	}
 	if r.ko.Spec.IPAddressType != nil {
 		res.IpAddressType = svcsdktypes.IpAddressType(*r.ko.Spec.IPAddressType)
 	}
@@ -427,41 +440,41 @@ func (rm *resourceManager) newCreateRequestPayload(
 		res.SecurityGroups = aws.ToStringSlice(r.ko.Spec.SecurityGroups)
 	}
 	if r.ko.Spec.SubnetMappings != nil {
-		f5 := []svcsdktypes.SubnetMapping{}
-		for _, f5iter := range r.ko.Spec.SubnetMappings {
-			f5elem := &svcsdktypes.SubnetMapping{}
-			if f5iter.AllocationID != nil {
-				f5elem.AllocationId = f5iter.AllocationID
+		f6 := []svcsdktypes.SubnetMapping{}
+		for _, f6iter := range r.ko.Spec.SubnetMappings {
+			f6elem := &svcsdktypes.SubnetMapping{}
+			if f6iter.AllocationID != nil {
+				f6elem.AllocationId = f6iter.AllocationID
 			}
-			if f5iter.IPv6Address != nil {
-				f5elem.IPv6Address = f5iter.IPv6Address
+			if f6iter.IPv6Address != nil {
+				f6elem.IPv6Address = f6iter.IPv6Address
 			}
-			if f5iter.PrivateIPv4Address != nil {
-				f5elem.PrivateIPv4Address = f5iter.PrivateIPv4Address
+			if f6iter.PrivateIPv4Address != nil {
+				f6elem.PrivateIPv4Address = f6iter.PrivateIPv4Address
 			}
-			if f5iter.SubnetID != nil {
-				f5elem.SubnetId = f5iter.SubnetID
+			if f6iter.SubnetID != nil {
+				f6elem.SubnetId = f6iter.SubnetID
 			}
-			f5 = append(f5, *f5elem)
+			f6 = append(f6, *f6elem)
 		}
-		res.SubnetMappings = f5
+		res.SubnetMappings = f6
 	}
 	if r.ko.Spec.Subnets != nil {
 		res.Subnets = aws.ToStringSlice(r.ko.Spec.Subnets)
 	}
 	if r.ko.Spec.Tags != nil {
-		f7 := []svcsdktypes.Tag{}
-		for _, f7iter := range r.ko.Spec.Tags {
-			f7elem := &svcsdktypes.Tag{}
-			if f7iter.Key != nil {
-				f7elem.Key = f7iter.Key
+		f8 := []svcsdktypes.Tag{}
+		for _, f8iter := range r.ko.Spec.Tags {
+			f8elem := &svcsdktypes.Tag{}
+			if f8iter.Key != nil {
+				f8elem.Key = f8iter.Key
 			}
-			if f7iter.Value != nil {
-				f7elem.Value = f7iter.Value
+			if f8iter.Value != nil {
+				f8elem.Value = f8iter.Value
 			}
-			f7 = append(f7, *f7elem)
+			f8 = append(f8, *f8elem)
 		}
-		res.Tags = f7
+		res.Tags = f8
 	}
 	if r.ko.Spec.Type != nil {
 		res.Type = svcsdktypes.LoadBalancerTypeEnum(*r.ko.Spec.Type)

@@ -17,16 +17,15 @@ package rule
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -46,14 +45,14 @@ func newResourceDelta(
 	if len(a.ko.Spec.Actions) != len(b.ko.Spec.Actions) {
 		delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
 	} else if len(a.ko.Spec.Actions) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Actions, b.ko.Spec.Actions) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Actions, b.ko.Spec.Actions) {
 			delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
 		}
 	}
 	if len(a.ko.Spec.Conditions) != len(b.ko.Spec.Conditions) {
 		delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
 	} else if len(a.ko.Spec.Conditions) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Conditions, b.ko.Spec.Conditions) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Conditions, b.ko.Spec.Conditions) {
 			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
 		}
 	}
@@ -64,7 +63,7 @@ func newResourceDelta(
 			delta.Add("Spec.ListenerARN", a.ko.Spec.ListenerARN, b.ko.Spec.ListenerARN)
 		}
 	}
-	if !reflect.DeepEqual(a.ko.Spec.ListenerRef, b.ko.Spec.ListenerRef) {
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.ListenerRef, b.ko.Spec.ListenerRef) {
 		delta.Add("Spec.ListenerRef", a.ko.Spec.ListenerRef, b.ko.Spec.ListenerRef)
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.Priority, b.ko.Spec.Priority) {
@@ -77,7 +76,7 @@ func newResourceDelta(
 	if len(a.ko.Spec.Tags) != len(b.ko.Spec.Tags) {
 		delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 	} else if len(a.ko.Spec.Tags) > 0 {
-		if !reflect.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
+		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Tags, b.ko.Spec.Tags) {
 			delta.Add("Spec.Tags", a.ko.Spec.Tags, b.ko.Spec.Tags)
 		}
 	}

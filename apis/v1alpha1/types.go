@@ -204,6 +204,7 @@ type LoadBalancer_SDK struct {
 	CreatedTime                                          *metav1.Time        `json:"createdTime,omitempty"`
 	CustomerOwnedIPv4Pool                                *string             `json:"customerOwnedIPv4Pool,omitempty"`
 	DNSName                                              *string             `json:"dnsName,omitempty"`
+	EnablePrefixForIPv6SourceNAT                         *string             `json:"enablePrefixForIPv6SourceNAT,omitempty"`
 	EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic *string             `json:"enforceSecurityGroupInboundRulesOnPrivateLinkTraffic,omitempty"`
 	IPAddressType                                        *string             `json:"ipAddressType,omitempty"`
 	LoadBalancerARN                                      *string             `json:"loadBalancerARN,omitempty"`

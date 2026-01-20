@@ -313,10 +313,6 @@ spec:
                             type: string
                           type: array
                       type: object
-                    values:
-                      items:
-                        type: string
-                      type: array
                   type: object
                 type: array
               listenerARN:

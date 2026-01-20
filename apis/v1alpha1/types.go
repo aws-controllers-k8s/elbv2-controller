@@ -322,7 +322,6 @@ type RuleCondition struct {
 	// that connects to the load balancer. If a client is behind a proxy, this is
 	// the IP address of the proxy not the IP address of the client.
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
-	Values         []*string                `json:"values,omitempty"`
 }
 
 // Information about the priorities for the rules for a listener.

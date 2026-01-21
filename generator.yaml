@@ -222,6 +222,9 @@ resources:
       Priority:
         set:
         - ignore: true
+      Conditions.Values:
+        set:
+        - ignore: all
     exceptions:
       errors:
         404:

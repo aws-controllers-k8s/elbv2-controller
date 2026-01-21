@@ -313,9 +313,6 @@ func (rm *resourceManager) sdkFind(
 					}
 					f1elem.SourceIPConfig = f1elemf6
 				}
-				if f1iter.Values != nil {
-					f1elem.Values = aws.StringSlice(f1iter.Values)
-				}
 				f1 = append(f1, f1elem)
 			}
 			ko.Spec.Conditions = f1
@@ -616,9 +613,6 @@ func (rm *resourceManager) sdkCreate(
 					}
 					f1elem.SourceIPConfig = f1elemf6
 				}
-				if f1iter.Values != nil {
-					f1elem.Values = aws.StringSlice(f1iter.Values)
-				}
 				f1 = append(f1, f1elem)
 			}
 			ko.Spec.Conditions = f1
@@ -881,9 +875,6 @@ func (rm *resourceManager) newCreateRequestPayload(
 					f1elemf6.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
 				}
 				f1elem.SourceIpConfig = f1elemf6
-			}
-			if f1iter.Values != nil {
-				f1elem.Values = aws.ToStringSlice(f1iter.Values)
 			}
 			f1 = append(f1, *f1elem)
 		}
@@ -1173,9 +1164,6 @@ func (rm *resourceManager) sdkUpdate(
 					}
 					f1elem.SourceIPConfig = f1elemf6
 				}
-				if f1iter.Values != nil {
-					f1elem.Values = aws.StringSlice(f1iter.Values)
-				}
 				f1 = append(f1, f1elem)
 			}
 			ko.Spec.Conditions = f1
@@ -1439,9 +1427,6 @@ func (rm *resourceManager) newUpdateRequestPayload(
 					f1elemf6.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
 				}
 				f1elem.SourceIpConfig = f1elemf6
-			}
-			if f1iter.Values != nil {
-				f1elem.Values = aws.ToStringSlice(f1iter.Values)
 			}
 			f1 = append(f1, *f1elem)
 		}

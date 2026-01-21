@@ -13,7 +13,6 @@ ignore:
   #- LoadBalancer.EnablePrefixForIpv6SourceNat
   #- CreateLoadBalancerInput.EnablePrefixForIpv6SourceNat
   - SubnetMapping.SourceNatIpv6Prefix
-  - RuleCondition.Values
 sdk_names:
   model_name: elastic-load-balancing-v2
   package_name: elasticloadbalancingv2
@@ -223,6 +222,9 @@ resources:
       Priority:
         set:
         - ignore: true
+      Conditions.Values:
+        set:
+        - ignore: all
     exceptions:
       errors:
         404:

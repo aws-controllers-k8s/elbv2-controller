@@ -222,6 +222,9 @@ resources:
       Priority:
         set:
         - ignore: true
+      Conditions:
+        compare:
+          is_ignored: true
     exceptions:
       errors:
         404:
@@ -234,9 +237,15 @@ resources:
     tags:
       ignore: true
     hooks:
+      delta_pre_compare:
+        code: customCompareConditions(delta, a, b)
+      sdk_create_post_set_output:
+        template_path: hooks/rule/sdk_create_post_set_output.go.tpl
+      sdk_update_post_set_output:
+        template_path: hooks/rule/sdk_update_post_set_output.go.tpl
       sdk_read_many_post_build_request:
         template_path: hooks/rule/sdk_read_many_post_build_request.go.tpl
-      sdk_update_pre_build_request:
-        template_path: hooks/rule/sdk_update_pre_build_request.go.tpl
       sdk_read_many_post_set_output:
         template_path: hooks/rule/sdk_read_many_post_set_output.go.tpl
+      sdk_update_pre_build_request:
+        template_path: hooks/rule/sdk_update_pre_build_request.go.tpl

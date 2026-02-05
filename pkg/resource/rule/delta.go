@@ -41,19 +41,13 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customCompareConditions(delta, a, b)
 
 	if len(a.ko.Spec.Actions) != len(b.ko.Spec.Actions) {
 		delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
 	} else if len(a.ko.Spec.Actions) > 0 {
 		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Actions, b.ko.Spec.Actions) {
 			delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)
-		}
-	}
-	if len(a.ko.Spec.Conditions) != len(b.ko.Spec.Conditions) {
-		delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
-	} else if len(a.ko.Spec.Conditions) > 0 {
-		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Conditions, b.ko.Spec.Conditions) {
-			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.ListenerARN, b.ko.Spec.ListenerARN) {

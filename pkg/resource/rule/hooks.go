@@ -18,10 +18,13 @@ import (
 	"errors"
 	"strconv"
 
+	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 var (
@@ -80,4 +83,140 @@ func int32OrNil(val *int64) *int32 {
 		return aws.Int32(int32(*val))
 	}
 	return nil
+}
+
+// normalizeConditions normalizes the latest resource conditions to match the
+// structure of the desired resource. For host-header and path-pattern conditions,
+// AWS ELBv2 API returns both the generic 'values' field and condition-specific
+// config fields. This function sets the appropriate fields based on what's
+// specified in the desired resource.
+func normalizeConditions(
+	desired *resource,
+	latest *resource,
+) {
+	if desired == nil || latest == nil {
+		return
+	}
+	if desired.ko.Spec.Conditions == nil || latest.ko.Spec.Conditions == nil {
+		return
+	}
+
+	for _, desiredCond := range desired.ko.Spec.Conditions {
+		// Find the corresponding latest condition by matching the field type
+		var latestCond *svcapitypes.RuleCondition
+		if desiredCond.Field != nil {
+			for _, lc := range latest.ko.Spec.Conditions {
+				if lc.Field != nil && *lc.Field == *desiredCond.Field {
+					latestCond = lc
+					break
+				}
+			}
+		}
+
+		if latestCond == nil {
+			continue
+		}
+
+		if desiredCond.Field != nil {
+			switch *desiredCond.Field {
+			case "host-header":
+				if desiredCond.HostHeaderConfig == nil {
+					latestCond.HostHeaderConfig = nil
+				}
+				if desiredCond.Values == nil {
+					latestCond.Values = nil
+				}
+			case "path-pattern":
+				if desiredCond.PathPatternConfig == nil {
+					latestCond.PathPatternConfig = nil
+				}
+				if desiredCond.Values == nil {
+					latestCond.Values = nil
+				}
+			}
+		}
+	}
+}
+
+// customCompareConditions performs custom comparison for Rule conditions.
+// AWS ELBv2 API returns both the generic 'values' field and condition-specific
+// config fields (e.g., hostHeaderConfig.values) for host-header and path-pattern
+// conditions. We only compare the fields that were specified in the desired state.
+func customCompareConditions(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if a == nil || b == nil {
+		return
+	}
+	if a.ko.Spec.Conditions == nil || b.ko.Spec.Conditions == nil {
+		return
+	}
+
+	if len(a.ko.Spec.Conditions) != len(b.ko.Spec.Conditions) {
+		delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+		return
+	}
+
+	for _, desiredCond := range a.ko.Spec.Conditions {
+		var observedCond *svcapitypes.RuleCondition
+		if desiredCond.Field != nil {
+			for _, oc := range b.ko.Spec.Conditions {
+				if oc.Field != nil && *oc.Field == *desiredCond.Field {
+					observedCond = oc
+					break
+				}
+			}
+		}
+
+		if observedCond == nil {
+			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+			return
+		}
+
+		if (desiredCond.Field == nil && observedCond.Field != nil) ||
+			(desiredCond.Field != nil && observedCond.Field == nil) ||
+			(desiredCond.Field != nil && observedCond.Field != nil && *desiredCond.Field != *observedCond.Field) {
+			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+			return
+		}
+
+		// For host-header and path-pattern conditions, compare based on what's in desired
+		if desiredCond.Field != nil {
+			switch *desiredCond.Field {
+			case "host-header":
+				if desiredCond.HostHeaderConfig != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.HostHeaderConfig, observedCond.HostHeaderConfig) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
+				if desiredCond.Values != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.Values, observedCond.Values) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
+			case "path-pattern":
+				if desiredCond.PathPatternConfig != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.PathPatternConfig, observedCond.PathPatternConfig) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
+				if desiredCond.Values != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.Values, observedCond.Values) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
+			default:
+				if !equality.Semantic.Equalities.DeepEqual(desiredCond, observedCond) {
+					delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+					return
+				}
+			}
+		}
+	}
 }

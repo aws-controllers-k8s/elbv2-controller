@@ -645,6 +645,9 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
+	// Normalize conditions to match desired resource structure
+	normalizeConditions(desired, &resource{ko})
+
 	return &resource{ko}, nil
 }
 
@@ -1202,6 +1205,9 @@ func (rm *resourceManager) sdkUpdate(
 	}
 
 	rm.setStatusDefaults(ko)
+	// Normalize conditions to match desired resource structure
+	normalizeConditions(desired, &resource{ko})
+
 	return &resource{ko}, nil
 }
 

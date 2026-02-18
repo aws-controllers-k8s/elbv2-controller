@@ -41,7 +41,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
-	customCompareConditions(delta, a, b)
+	customPreCompare(delta, a, b)
 
 	if len(a.ko.Spec.Actions) != len(b.ko.Spec.Actions) {
 		delta.Add("Spec.Actions", a.ko.Spec.Actions, b.ko.Spec.Actions)

@@ -138,6 +138,14 @@ func normalizeConditions(
 	}
 }
 
+func customPreCompare(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	customCompareConditions(delta, a, b)
+}
+
 // customCompareConditions performs custom comparison for Rule conditions.
 // AWS ELBv2 API returns both the generic 'values' field and condition-specific
 // config fields (e.g., hostHeaderConfig.values) for host-header and path-pattern
@@ -148,9 +156,6 @@ func customCompareConditions(
 	b *resource,
 ) {
 	if a == nil || b == nil {
-		return
-	}
-	if a.ko.Spec.Conditions == nil || b.ko.Spec.Conditions == nil {
 		return
 	}
 

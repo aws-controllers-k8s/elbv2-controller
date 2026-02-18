@@ -314,7 +314,7 @@ func TestCustomCompareConditions(t *testing.T) {
 			deltaFieldCount: 0,
 		},
 		{
-			name: "nil conditions should not panic",
+			name: "nil desired conditions and non-nil observed - delta expected",
 			desired: &resource{
 				ko: &svcapitypes.Rule{
 					Spec: svcapitypes.RuleSpec{
@@ -331,6 +331,49 @@ func TestCustomCompareConditions(t *testing.T) {
 								Values: []*string{aws.String("example.com")},
 							},
 						},
+					},
+				},
+			},
+			expectDelta:     true,
+			deltaFieldCount: 1,
+		},
+		{
+			name: "non-nil desired conditions and nil observed - delta expected",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Conditions: []*svcapitypes.RuleCondition{
+							{
+								Field:  aws.String("host-header"),
+								Values: []*string{aws.String("example.com")},
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Conditions: nil,
+					},
+				},
+			},
+			expectDelta:     true,
+			deltaFieldCount: 1,
+		},
+		{
+			name: "Both desired and  observed conditions are nil- no delta",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Conditions: nil,
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Conditions: nil,
 					},
 				},
 			},

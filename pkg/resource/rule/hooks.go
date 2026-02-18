@@ -85,59 +85,6 @@ func int32OrNil(val *int64) *int32 {
 	return nil
 }
 
-// normalizeConditions normalizes the latest resource conditions to match the
-// structure of the desired resource. For host-header and path-pattern conditions,
-// AWS ELBv2 API returns both the generic 'values' field and condition-specific
-// config fields. This function sets the appropriate fields based on what's
-// specified in the desired resource.
-func normalizeConditions(
-	desired *resource,
-	latest *resource,
-) {
-	if desired == nil || latest == nil {
-		return
-	}
-	if desired.ko.Spec.Conditions == nil || latest.ko.Spec.Conditions == nil {
-		return
-	}
-
-	for _, desiredCond := range desired.ko.Spec.Conditions {
-		// Find the corresponding latest condition by matching the field type
-		var latestCond *svcapitypes.RuleCondition
-		if desiredCond.Field != nil {
-			for _, lc := range latest.ko.Spec.Conditions {
-				if lc.Field != nil && *lc.Field == *desiredCond.Field {
-					latestCond = lc
-					break
-				}
-			}
-		}
-
-		if latestCond == nil {
-			continue
-		}
-
-		if desiredCond.Field != nil {
-			switch *desiredCond.Field {
-			case "host-header":
-				if desiredCond.HostHeaderConfig == nil {
-					latestCond.HostHeaderConfig = nil
-				}
-				if desiredCond.Values == nil {
-					latestCond.Values = nil
-				}
-			case "path-pattern":
-				if desiredCond.PathPatternConfig == nil {
-					latestCond.PathPatternConfig = nil
-				}
-				if desiredCond.Values == nil {
-					latestCond.Values = nil
-				}
-			}
-		}
-	}
-}
-
 func customPreCompare(
 	delta *ackcompare.Delta,
 	a *resource,

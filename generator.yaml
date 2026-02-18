@@ -225,6 +225,11 @@ resources:
       Conditions:
         compare:
           is_ignored: true
+        set:
+          - method: Create
+            ignore: from
+          - method: Update
+            ignore: from
     exceptions:
       errors:
         404:
@@ -239,10 +244,6 @@ resources:
     hooks:
       delta_pre_compare:
         code: customPreCompare(delta, a, b)
-      sdk_create_post_set_output:
-        template_path: hooks/rule/sdk_create_post_set_output.go.tpl
-      sdk_update_post_set_output:
-        template_path: hooks/rule/sdk_update_post_set_output.go.tpl
       sdk_read_many_post_build_request:
         template_path: hooks/rule/sdk_read_many_post_build_request.go.tpl
       sdk_read_many_post_set_output:

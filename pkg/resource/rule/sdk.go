@@ -553,78 +553,6 @@ func (rm *resourceManager) sdkCreate(
 		} else {
 			ko.Spec.Actions = nil
 		}
-		if elem.Conditions != nil {
-			f1 := []*svcapitypes.RuleCondition{}
-			for _, f1iter := range elem.Conditions {
-				f1elem := &svcapitypes.RuleCondition{}
-				if f1iter.Field != nil {
-					f1elem.Field = f1iter.Field
-				}
-				if f1iter.HostHeaderConfig != nil {
-					f1elemf1 := &svcapitypes.HostHeaderConditionConfig{}
-					if f1iter.HostHeaderConfig.Values != nil {
-						f1elemf1.Values = aws.StringSlice(f1iter.HostHeaderConfig.Values)
-					}
-					f1elem.HostHeaderConfig = f1elemf1
-				}
-				if f1iter.HttpHeaderConfig != nil {
-					f1elemf2 := &svcapitypes.HTTPHeaderConditionConfig{}
-					if f1iter.HttpHeaderConfig.HttpHeaderName != nil {
-						f1elemf2.HTTPHeaderName = f1iter.HttpHeaderConfig.HttpHeaderName
-					}
-					if f1iter.HttpHeaderConfig.Values != nil {
-						f1elemf2.Values = aws.StringSlice(f1iter.HttpHeaderConfig.Values)
-					}
-					f1elem.HTTPHeaderConfig = f1elemf2
-				}
-				if f1iter.HttpRequestMethodConfig != nil {
-					f1elemf3 := &svcapitypes.HTTPRequestMethodConditionConfig{}
-					if f1iter.HttpRequestMethodConfig.Values != nil {
-						f1elemf3.Values = aws.StringSlice(f1iter.HttpRequestMethodConfig.Values)
-					}
-					f1elem.HTTPRequestMethodConfig = f1elemf3
-				}
-				if f1iter.PathPatternConfig != nil {
-					f1elemf4 := &svcapitypes.PathPatternConditionConfig{}
-					if f1iter.PathPatternConfig.Values != nil {
-						f1elemf4.Values = aws.StringSlice(f1iter.PathPatternConfig.Values)
-					}
-					f1elem.PathPatternConfig = f1elemf4
-				}
-				if f1iter.QueryStringConfig != nil {
-					f1elemf5 := &svcapitypes.QueryStringConditionConfig{}
-					if f1iter.QueryStringConfig.Values != nil {
-						f1elemf5f0 := []*svcapitypes.QueryStringKeyValuePair{}
-						for _, f1elemf5f0iter := range f1iter.QueryStringConfig.Values {
-							f1elemf5f0elem := &svcapitypes.QueryStringKeyValuePair{}
-							if f1elemf5f0iter.Key != nil {
-								f1elemf5f0elem.Key = f1elemf5f0iter.Key
-							}
-							if f1elemf5f0iter.Value != nil {
-								f1elemf5f0elem.Value = f1elemf5f0iter.Value
-							}
-							f1elemf5f0 = append(f1elemf5f0, f1elemf5f0elem)
-						}
-						f1elemf5.Values = f1elemf5f0
-					}
-					f1elem.QueryStringConfig = f1elemf5
-				}
-				if f1iter.SourceIpConfig != nil {
-					f1elemf6 := &svcapitypes.SourceIPConditionConfig{}
-					if f1iter.SourceIpConfig.Values != nil {
-						f1elemf6.Values = aws.StringSlice(f1iter.SourceIpConfig.Values)
-					}
-					f1elem.SourceIPConfig = f1elemf6
-				}
-				if f1iter.Values != nil {
-					f1elem.Values = aws.StringSlice(f1iter.Values)
-				}
-				f1 = append(f1, f1elem)
-			}
-			ko.Spec.Conditions = f1
-		} else {
-			ko.Spec.Conditions = nil
-		}
 		if elem.IsDefault != nil {
 			ko.Status.IsDefault = elem.IsDefault
 		} else {
@@ -645,9 +573,6 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	// Normalize conditions to match desired resource structure
-	normalizeConditions(desired, &resource{ko})
-
 	return &resource{ko}, nil
 }
 
@@ -1113,78 +1038,6 @@ func (rm *resourceManager) sdkUpdate(
 		} else {
 			ko.Spec.Actions = nil
 		}
-		if elem.Conditions != nil {
-			f1 := []*svcapitypes.RuleCondition{}
-			for _, f1iter := range elem.Conditions {
-				f1elem := &svcapitypes.RuleCondition{}
-				if f1iter.Field != nil {
-					f1elem.Field = f1iter.Field
-				}
-				if f1iter.HostHeaderConfig != nil {
-					f1elemf1 := &svcapitypes.HostHeaderConditionConfig{}
-					if f1iter.HostHeaderConfig.Values != nil {
-						f1elemf1.Values = aws.StringSlice(f1iter.HostHeaderConfig.Values)
-					}
-					f1elem.HostHeaderConfig = f1elemf1
-				}
-				if f1iter.HttpHeaderConfig != nil {
-					f1elemf2 := &svcapitypes.HTTPHeaderConditionConfig{}
-					if f1iter.HttpHeaderConfig.HttpHeaderName != nil {
-						f1elemf2.HTTPHeaderName = f1iter.HttpHeaderConfig.HttpHeaderName
-					}
-					if f1iter.HttpHeaderConfig.Values != nil {
-						f1elemf2.Values = aws.StringSlice(f1iter.HttpHeaderConfig.Values)
-					}
-					f1elem.HTTPHeaderConfig = f1elemf2
-				}
-				if f1iter.HttpRequestMethodConfig != nil {
-					f1elemf3 := &svcapitypes.HTTPRequestMethodConditionConfig{}
-					if f1iter.HttpRequestMethodConfig.Values != nil {
-						f1elemf3.Values = aws.StringSlice(f1iter.HttpRequestMethodConfig.Values)
-					}
-					f1elem.HTTPRequestMethodConfig = f1elemf3
-				}
-				if f1iter.PathPatternConfig != nil {
-					f1elemf4 := &svcapitypes.PathPatternConditionConfig{}
-					if f1iter.PathPatternConfig.Values != nil {
-						f1elemf4.Values = aws.StringSlice(f1iter.PathPatternConfig.Values)
-					}
-					f1elem.PathPatternConfig = f1elemf4
-				}
-				if f1iter.QueryStringConfig != nil {
-					f1elemf5 := &svcapitypes.QueryStringConditionConfig{}
-					if f1iter.QueryStringConfig.Values != nil {
-						f1elemf5f0 := []*svcapitypes.QueryStringKeyValuePair{}
-						for _, f1elemf5f0iter := range f1iter.QueryStringConfig.Values {
-							f1elemf5f0elem := &svcapitypes.QueryStringKeyValuePair{}
-							if f1elemf5f0iter.Key != nil {
-								f1elemf5f0elem.Key = f1elemf5f0iter.Key
-							}
-							if f1elemf5f0iter.Value != nil {
-								f1elemf5f0elem.Value = f1elemf5f0iter.Value
-							}
-							f1elemf5f0 = append(f1elemf5f0, f1elemf5f0elem)
-						}
-						f1elemf5.Values = f1elemf5f0
-					}
-					f1elem.QueryStringConfig = f1elemf5
-				}
-				if f1iter.SourceIpConfig != nil {
-					f1elemf6 := &svcapitypes.SourceIPConditionConfig{}
-					if f1iter.SourceIpConfig.Values != nil {
-						f1elemf6.Values = aws.StringSlice(f1iter.SourceIpConfig.Values)
-					}
-					f1elem.SourceIPConfig = f1elemf6
-				}
-				if f1iter.Values != nil {
-					f1elem.Values = aws.StringSlice(f1iter.Values)
-				}
-				f1 = append(f1, f1elem)
-			}
-			ko.Spec.Conditions = f1
-		} else {
-			ko.Spec.Conditions = nil
-		}
 		if elem.IsDefault != nil {
 			ko.Status.IsDefault = elem.IsDefault
 		} else {
@@ -1205,9 +1058,6 @@ func (rm *resourceManager) sdkUpdate(
 	}
 
 	rm.setStatusDefaults(ko)
-	// Normalize conditions to match desired resource structure
-	normalizeConditions(desired, &resource{ko})
-
 	return &resource{ko}, nil
 }
 

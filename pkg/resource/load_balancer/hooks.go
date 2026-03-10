@@ -108,8 +108,8 @@ func customPreCompare(
 	}
 }
 
-// customUpdateLoadBalancer is a custom update function that updates the attributes/tags
-// of the load balancer.
+// customUpdateLoadBalancer is a custom update function that updates the
+// mutable properties of the load balancer.
 func (rm *resourceManager) customUpdateLoadBalancer(
 	ctx context.Context,
 	desired *resource,
@@ -128,6 +128,17 @@ func (rm *resourceManager) customUpdateLoadBalancer(
 	}
 	if delta.DifferentAt("Spec.Tags") {
 		if err := rm.updateLoadBalancerTags(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+	if delta.DifferentAt("Spec.SecurityGroups") {
+		if err := rm.updateLoadBalancerSecurityGroups(ctx, desired); err != nil {
+			return nil, err
+		}
+	}
+
+	if delta.DifferentAt("Spec.IPAddressType") {
+		if err := rm.updateLoadBalancerIPAddressType(ctx, desired); err != nil {
 			return nil, err
 		}
 	}
@@ -179,6 +190,49 @@ func (rm *resourceManager) updateLoadBalancerAttributes(
 		return err
 	}
 	return nil
+}
+
+// updateLoadBalancerSecurityGroups updates the security groups associated with
+// the load balancer by calling the SetSecurityGroups API.
+func (rm *resourceManager) updateLoadBalancerSecurityGroups(
+	ctx context.Context,
+	desired *resource,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.updateLoadBalancerSecurityGroups")
+	var err error
+	defer func() { exit(err) }()
+
+	input := &svcsdk.SetSecurityGroupsInput{
+		LoadBalancerArn: (*string)(desired.ko.Status.ACKResourceMetadata.ARN),
+		SecurityGroups:  aws.ToStringSlice(desired.ko.Spec.SecurityGroups),
+	}
+	_, err = rm.sdkapi.SetSecurityGroups(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "SetSecurityGroups", err)
+	return err
+}
+
+// updateLoadBalancerIPAddressType updates the IP address type of the load
+// balancer by calling the SetIpAddressType API.
+func (rm *resourceManager) updateLoadBalancerIPAddressType(
+	ctx context.Context,
+	desired *resource,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.updateLoadBalancerIPAddressType")
+	var err error
+	defer func() { exit(err) }()
+
+	if desired.ko.Spec.IPAddressType == nil {
+		return nil
+	}
+	input := &svcsdk.SetIpAddressTypeInput{
+		LoadBalancerArn: (*string)(desired.ko.Status.ACKResourceMetadata.ARN),
+		IpAddressType:   svcsdktypes.IpAddressType(*desired.ko.Spec.IPAddressType),
+	}
+	_, err = rm.sdkapi.SetIpAddressType(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "SetIpAddressType", err)
+	return err
 }
 
 // updateLoadBalancerTags updates the tags of the load balancer.

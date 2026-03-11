@@ -88,6 +88,8 @@ resources:
         compare:
           is_ignored: true
       SecurityGroups:
+        late_initialize:
+          skip_incomplete_check: {}
         references:
           resource: SecurityGroup
           path: Status.ID

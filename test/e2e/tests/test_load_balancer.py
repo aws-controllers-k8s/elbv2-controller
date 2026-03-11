@@ -173,7 +173,7 @@ class TestLoadBalancer:
         assert 'ackResourceMetadata' in cr['status']
         assert 'arn' in cr['status']['ackResourceMetadata']
         arn = cr['status']['ackResourceMetadata']['arn']
-        
+
         assert 'tags' in cr['spec']
         user_tags = cr['spec']['tags']
 
@@ -191,3 +191,44 @@ class TestLoadBalancer:
             expected=user_tags,
             actual=actual_tags,
         )
+
+    def test_update_security_groups(self, elbv2_client, simple_load_balancer):
+        (ref, cr, lb_name) = simple_load_balancer
+        assert lb_name is not None
+
+        validator = ELBValidator(elbv2_client)
+        assert validator.load_balancer_exists(lb_name)
+
+        bootstrap_resources = get_bootstrap_resources()
+        bootstrap_sg_id = bootstrap_resources.ACKVPC.security_group.group_id
+
+        # Record the default security groups assigned at creation
+        original_sgs = validator.get_load_balancer_security_groups(lb_name)
+        assert original_sgs is not None
+
+        # Patch the LB to explicitly set the bootstrap security group
+        updates = {
+            "spec": {
+                "securityGroups": [bootstrap_sg_id],
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        aws_sgs = validator.get_load_balancer_security_groups(lb_name)
+        assert aws_sgs is not None
+        assert len(aws_sgs) == 1
+        assert bootstrap_sg_id in aws_sgs
+
+        # Restore the original security groups
+        updates = {
+            "spec": {
+                "securityGroups": original_sgs,
+            },
+        }
+        k8s.patch_custom_resource(ref, updates)
+        time.sleep(UPDATE_WAIT_AFTER_SECONDS)
+
+        aws_sgs = validator.get_load_balancer_security_groups(lb_name)
+        assert aws_sgs is not None
+        assert set(aws_sgs) == set(original_sgs)

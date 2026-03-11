@@ -31,6 +31,12 @@ class ELBValidator:
     def get_load_balancer_attributes(self, arn):
         response = self.elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=arn)
         return response['Attributes']
+
+    def get_load_balancer_security_groups(self, name):
+        lb = self.get_load_balancer(name)
+        if lb is None:
+            return None
+        return lb.get('SecurityGroups', [])
     
     def get_listener(self, arn):
         try:

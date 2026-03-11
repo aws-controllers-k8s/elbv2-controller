@@ -50,7 +50,7 @@ var (
 // +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=loadbalancers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=loadbalancers/status,verbs=get;update;patch
 
-var lateInitializeFieldNames = []string{"EnablePrefixForIPv6SourceNAT"}
+var lateInitializeFieldNames = []string{"EnablePrefixForIPv6SourceNAT", "SecurityGroups"}
 
 // resourceManager is responsible for providing a consistent way to perform
 // CRUD operations in a backend AWS service API for Book custom resources.
@@ -265,6 +265,9 @@ func (rm *resourceManager) lateInitializeFromReadOneOutput(
 	latestKo := rm.concreteResource(latest).ko.DeepCopy()
 	if observedKo.Spec.EnablePrefixForIPv6SourceNAT != nil && latestKo.Spec.EnablePrefixForIPv6SourceNAT == nil {
 		latestKo.Spec.EnablePrefixForIPv6SourceNAT = observedKo.Spec.EnablePrefixForIPv6SourceNAT
+	}
+	if observedKo.Spec.SecurityGroups != nil && latestKo.Spec.SecurityGroups == nil {
+		latestKo.Spec.SecurityGroups = observedKo.Spec.SecurityGroups
 	}
 	return &resource{latestKo}
 }

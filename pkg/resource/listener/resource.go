@@ -87,21 +87,26 @@ func (r *resource) SetStatus(desired acktypes.AWSResource) {
 // SetIdentifiers sets the Spec or Status field that is referenced as the unique
 // resource identifier
 func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error {
-	if identifier.NameOrID == "" {
-		return ackerrors.MissingNameIdentifier
+	if r.ko.Status.ACKResourceMetadata == nil {
+		r.ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
 	}
-	r.ko.Spec.LoadBalancerARN = &identifier.NameOrID
+	r.ko.Status.ACKResourceMetadata.ARN = identifier.ARN
 
 	return nil
 }
 
 // PopulateResourceFromAnnotation populates the fields passed from adoption annotation
 func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) error {
-	primaryKey, ok := fields["loadBalancerARN"]
+	resourceARN, ok := fields["arn"]
 	if !ok {
-		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: loadBalancerARN"))
+		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: arn"))
 	}
-	r.ko.Spec.LoadBalancerARN = &primaryKey
+
+	if r.ko.Status.ACKResourceMetadata == nil {
+		r.ko.Status.ACKResourceMetadata = &ackv1alpha1.ResourceMetadata{}
+	}
+	arn := ackv1alpha1.AWSResourceName(resourceARN)
+	r.ko.Status.ACKResourceMetadata.ARN = &arn
 
 	return nil
 }

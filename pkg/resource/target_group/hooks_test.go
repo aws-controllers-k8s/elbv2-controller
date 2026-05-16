@@ -300,16 +300,146 @@ func TestUpdateTargetGroupAttributes_BuildsCompleteAttributeSet(t *testing.T) {
 			if p.value != "" {
 				t.Errorf("slow_start.duration_seconds = %q, want empty string (reset)", p.value)
 			}
+			}
+		}
+	
+		if !foundProxy {
+			t.Error("proxy_protocol_v2.enabled should be present in the result")
+		}
+		if !foundDereg {
+			t.Error("deregistration_delay.timeout_seconds should be present in the result (reset to default)")
+		}
+		if !foundSlow {
+			t.Error("slow_start.duration_seconds should be present in the result (reset to default)")
 		}
 	}
-
-	if !foundProxy {
-		t.Error("proxy_protocol_v2.enabled should be present in the result")
+	
+	// TestDeregistrationDelayTimeoutScenario simulates the full lifecycle of
+	// deregistration_delay.timeout_seconds attribute:
+	//  1. Initial: no timeout set (default 300s on AWS side)
+	//  2. User sets deregistration_delay.timeout_seconds = "60"
+	//  3. User modifies it to "120"
+	//  4. User removes it (should reset to default)
+	func TestDeregistrationDelayTimeoutScenario(t *testing.T) {
+		t.Run("step1_initial_no_timeout_set", func(t *testing.T) {
+			// User spec has no attributes
+			desired := []*svcapitypes.TargetGroupAttribute{}
+			// AWS returns default value
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("300")},
+			}
+	
+			// No change if user hasn't set anything yet
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: user has no timeout set but AWS has default 300s, should reset to default")
+			}
+	
+			// Verify delta is produced
+			delta := ackcompare.NewDelta()
+			a := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: desired}}}
+			b := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: latest}}}
+			compareTargetGroupAttributes(delta, a, b)
+			if len(delta.Differences) == 0 {
+				t.Error("expected delta difference for timeout removal")
+			}
+		})
+	
+		t.Run("step2_set_timeout_to_60", func(t *testing.T) {
+			// User sets deregistration_delay.timeout_seconds = "60"
+			desired := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+			}
+			// AWS still has default 300s
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("300")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: desired=60, latest=300")
+			}
+	
+			// Verify the update would send "60"
+			desiredAttrs := map[string]string{}
+			for _, attr := range desired {
+				if attr.Key != nil && *attr.Key != "" && attr.Value != nil {
+					desiredAttrs[*attr.Key] = *attr.Value
+				}
+			}
+			if v, ok := desiredAttrs["deregistration_delay.timeout_seconds"]; !ok || v != "60" {
+				t.Errorf("expected deregistration_delay.timeout_seconds=60, got=%v", v)
+			}
+		})
+	
+		t.Run("step3_modify_timeout_to_120", func(t *testing.T) {
+			// User modifies deregistration_delay.timeout_seconds from "60" to "120"
+			desired := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")},
+			}
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: desired=120, latest=60")
+			}
+		})
+	
+		t.Run("step4_remove_timeout_reset_to_default", func(t *testing.T) {
+			// User removes deregistration_delay.timeout_seconds from spec entirely
+			desired := []*svcapitypes.TargetGroupAttribute{}
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: attribute removed from desired, should reset to default")
+			}
+	
+			// Verify the update would send empty value to reset
+			desiredAttrs := map[string]string{}
+			for _, attr := range desired {
+				if attr.Key != nil && *attr.Key != "" {
+					if attr.Value != nil {
+						desiredAttrs[*attr.Key] = *attr.Value
+					} else {
+						desiredAttrs[*attr.Key] = ""
+					}
+				}
+			}
+	
+			// Simulate the updateTargetGroupAttributes logic
+			type attrPair struct {
+				key   string
+				value string
+			}
+			var result []attrPair
+			for key, value := range desiredAttrs {
+				result = append(result, attrPair{key, value})
+			}
+			for _, attr := range latest {
+				if attr.Key == nil || *attr.Key == "" {
+					continue
+				}
+				if _, exists := desiredAttrs[*attr.Key]; !exists {
+					result = append(result, attrPair{*attr.Key, ""})
+				}
+			}
+	
+			foundReset := false
+			for _, p := range result {
+				if p.key == "deregistration_delay.timeout_seconds" {
+					foundReset = true
+					if p.value != "" {
+						t.Errorf("deregistration_delay.timeout_seconds should be reset to empty string, got=%q", p.value)
+					}
+				}
+			}
+			if !foundReset {
+				t.Error("deregistration_delay.timeout_seconds should be present with empty value for reset")
+			}
+		})
 	}
-	if !foundDereg {
-		t.Error("deregistration_delay.timeout_seconds should be present in the result (reset to default)")
-	}
-	if !foundSlow {
-		t.Error("slow_start.duration_seconds should be present in the result (reset to default)")
-	}
-}

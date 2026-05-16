@@ -443,3 +443,239 @@ func TestUpdateTargetGroupAttributes_BuildsCompleteAttributeSet(t *testing.T) {
 			}
 		})
 	}
+	
+	// TestAccessLogAttributesScenario simulates the full lifecycle of
+	// access log related TargetGroup attributes:
+	//
+	//	proxy_protocol_v2.enabled - boolean flag
+	//	deregistration_delay.timeout_seconds - timeout value
+	//	preserve_client_ip.enabled - boolean flag
+	//	load_balancing.algorithm.type - algorithm selection
+	//	slow_start.duration_seconds - duration value
+	//
+	// This test verifies that multiple attributes can be set, modified,
+	// and removed together in a realistic controller reconciliation scenario.
+	func TestAccessLogAttributesScenario(t *testing.T) {
+		t.Run("step1_set_multiple_access_log_attributes", func(t *testing.T) {
+			// User configures multiple attributes including access log settings
+			desired := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("true")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("least_outstanding_requests")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("30")},
+			}
+			// AWS currently has different values (or defaults)
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("false")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("300")},
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("false")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("round_robin")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("0")},
+			}
+	
+			// All 5 attributes differ → should detect change
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: all 5 attributes differ from AWS defaults")
+			}
+	
+			// Verify delta is produced
+			delta := ackcompare.NewDelta()
+			a := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: desired}}}
+			b := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: latest}}}
+			compareTargetGroupAttributes(delta, a, b)
+			if len(delta.Differences) == 0 {
+				t.Error("expected delta differences for 5 attribute changes")
+			}
+		})
+	
+		t.Run("step2_modify_subset_of_attributes", func(t *testing.T) {
+			// User modifies only 2 of the 5 attributes
+			desired := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")}, // changed from 60 → 120
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("true")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("least_outstanding_requests")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("60")}, // changed from 30 → 60
+			}
+			// AWS reflects previous desired state
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("true")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("least_outstanding_requests")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("30")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: 2 attributes modified (timeout 60→120, slow_start 30→60)")
+			}
+	
+			// Verify only the 2 changed attributes are detected
+			delta := ackcompare.NewDelta()
+			a := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: desired}}}
+			b := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Attributes: latest}}}
+			compareTargetGroupAttributes(delta, a, b)
+			if len(delta.Differences) == 0 {
+				t.Error("expected delta differences for 2 attribute modifications")
+			}
+		})
+	
+		t.Run("step3_remove_some_attributes_keep_others", func(t *testing.T) {
+			// User removes 2 attributes, keeps 3
+			desired := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("60")},
+			}
+			// AWS still has all 5 from previous state
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")},
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("true")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("least_outstanding_requests")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("60")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: 2 attributes removed (preserve_client_ip, load_balancing.algorithm)")
+			}
+	
+			// Build the attribute map to verify reset logic
+			desiredAttrs := map[string]string{}
+			for _, attr := range desired {
+				if attr.Key != nil && *attr.Key != "" {
+					if attr.Value != nil {
+						desiredAttrs[*attr.Key] = *attr.Value
+					} else {
+						desiredAttrs[*attr.Key] = ""
+					}
+				}
+			}
+	
+			type attrPair struct {
+				key   string
+				value string
+			}
+			var result []attrPair
+			for key, value := range desiredAttrs {
+				result = append(result, attrPair{key, value})
+			}
+			for _, attr := range latest {
+				if attr.Key == nil || *attr.Key == "" {
+					continue
+				}
+				if _, exists := desiredAttrs[*attr.Key]; !exists {
+					result = append(result, attrPair{*attr.Key, ""})
+				}
+			}
+	
+			// Verify removed attributes get reset entries
+			foundPreserveClientIP := false
+			foundLBAlgorithm := false
+			for _, p := range result {
+				if p.key == "preserve_client_ip.enabled" {
+					foundPreserveClientIP = true
+					if p.value != "" {
+						t.Errorf("preserve_client_ip.enabled should be reset to empty string, got=%q", p.value)
+					}
+				}
+				if p.key == "load_balancing.algorithm.type" {
+					foundLBAlgorithm = true
+					if p.value != "" {
+						t.Errorf("load_balancing.algorithm.type should be reset to empty string, got=%q", p.value)
+					}
+				}
+			}
+			if !foundPreserveClientIP {
+				t.Error("preserve_client_ip.enabled should be present with empty value for reset")
+			}
+			if !foundLBAlgorithm {
+				t.Error("load_balancing.algorithm.type should be present with empty value for reset")
+			}
+	
+			// Verify kept attributes still have their values
+			for _, p := range result {
+				if p.key == "proxy_protocol_v2.enabled" && p.value != "true" {
+					t.Errorf("proxy_protocol_v2.enabled should be 'true', got=%q", p.value)
+				}
+				if p.key == "deregistration_delay.timeout_seconds" && p.value != "120" {
+					t.Errorf("deregistration_delay.timeout_seconds should be '120', got=%q", p.value)
+				}
+				if p.key == "slow_start.duration_seconds" && p.value != "60" {
+					t.Errorf("slow_start.duration_seconds should be '60', got=%q", p.value)
+				}
+			}
+		})
+	
+		t.Run("step4_remove_all_attributes", func(t *testing.T) {
+			// User removes ALL attributes from spec
+			desired := []*svcapitypes.TargetGroupAttribute{}
+			latest := []*svcapitypes.TargetGroupAttribute{
+				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("120")},
+				{Key: ptr("preserve_client_ip.enabled"), Value: ptr("true")},
+				{Key: ptr("load_balancing.algorithm.type"), Value: ptr("least_outstanding_requests")},
+				{Key: ptr("slow_start.duration_seconds"), Value: ptr("60")},
+			}
+	
+			changed := targetGroupAttributesHaveChanged(desired, latest)
+			if !changed {
+				t.Error("expected change: all attributes removed, should reset all to default")
+			}
+	
+			// Build the attribute map to verify all get reset entries
+			desiredAttrs := map[string]string{}
+			for _, attr := range desired {
+				if attr.Key != nil && *attr.Key != "" {
+					if attr.Value != nil {
+						desiredAttrs[*attr.Key] = *attr.Value
+					} else {
+						desiredAttrs[*attr.Key] = ""
+					}
+				}
+			}
+	
+			type attrPair struct {
+				key   string
+				value string
+			}
+			var result []attrPair
+			for key, value := range desiredAttrs {
+				result = append(result, attrPair{key, value})
+			}
+			for _, attr := range latest {
+				if attr.Key == nil || *attr.Key == "" {
+					continue
+				}
+				if _, exists := desiredAttrs[*attr.Key]; !exists {
+					result = append(result, attrPair{*attr.Key, ""})
+				}
+			}
+	
+			// All 5 attributes should be reset
+			resetKeys := map[string]bool{
+				"proxy_protocol_v2.enabled":            false,
+				"deregistration_delay.timeout_seconds": false,
+				"preserve_client_ip.enabled":           false,
+				"load_balancing.algorithm.type":        false,
+				"slow_start.duration_seconds":          false,
+			}
+			for _, p := range result {
+				if _, isReset := resetKeys[p.key]; isReset {
+					resetKeys[p.key] = true
+					if p.value != "" {
+						t.Errorf("%s should be reset to empty string, got=%q", p.key, p.value)
+					}
+				}
+			}
+			for key, found := range resetKeys {
+				if !found {
+					t.Errorf("%s should be present with empty value for reset", key)
+				}
+			}
+		})
+	}

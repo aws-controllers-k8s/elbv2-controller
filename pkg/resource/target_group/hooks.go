@@ -37,6 +37,162 @@ func customCompare(
 	b *resource,
 ) {
 	compareTargetDescription(delta, a, b)
+	compareTargetGroupAttributes(delta, a, b)
+}
+
+// compareTargetGroupAttributes compares the attributes of the target group.
+// Since Attributes is marked as compare.is_ignored in generator.yaml, ACK
+// will not automatically compare them. This function performs the comparison
+// and adds a delta entry if the attributes have changed.
+func compareTargetGroupAttributes(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if targetGroupAttributesHaveChanged(a.ko.Spec.Attributes, b.ko.Spec.Attributes) {
+		delta.Add("Spec.Attributes", a.ko.Spec.Attributes, b.ko.Spec.Attributes)
+	}
+}
+
+// targetGroupAttributesHaveChanged returns true if the desired attributes (a) differ
+// from the latest attributes (b). It performs a bidirectional comparison:
+// - Checks if any desired attribute is missing or has a different value in latest
+// - Checks if any latest attribute is missing from desired (i.e., attribute was removed)
+func targetGroupAttributesHaveChanged(a, b []*svcapitypes.TargetGroupAttribute) bool {
+	// Check if any desired attribute is missing or different in latest
+	for _, attrA := range a {
+		if !containsExactTargetGroupAttribute(b, attrA) {
+			return true
+		}
+	}
+	// Check if any latest attribute is missing from desired (attribute removal)
+	for _, attrB := range b {
+		if !containsExactTargetGroupAttribute(a, attrB) {
+			return true
+		}
+	}
+	return false
+}
+
+// containsExactTargetGroupAttribute returns true if the key is in the attributes slice
+// and has the same value.
+func containsExactTargetGroupAttribute(attributes []*svcapitypes.TargetGroupAttribute, targetAttribute *svcapitypes.TargetGroupAttribute) bool {
+	for _, attribute := range attributes {
+		if attribute.Key != nil && targetAttribute.Key != nil &&
+			*attribute.Key == *targetAttribute.Key &&
+			attribute.Value != nil && targetAttribute.Value != nil &&
+			*attribute.Value == *targetAttribute.Value {
+			return true
+		}
+	}
+	return false
+}
+
+// getTargetGroupAttributes returns the attributes of the target group from AWS.
+func (rm *resourceManager) getTargetGroupAttributes(
+	ctx context.Context,
+	ko *svcapitypes.TargetGroup,
+) ([]*svcapitypes.TargetGroupAttribute, error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.getTargetGroupAttributes")
+	var err error
+	defer func() {
+		exit(err)
+	}()
+
+	attributes := []*svcapitypes.TargetGroupAttribute{}
+	var resp *svcsdk.DescribeTargetGroupAttributesOutput
+
+	resp, err = rm.sdkapi.DescribeTargetGroupAttributes(ctx, &svcsdk.DescribeTargetGroupAttributesInput{
+		TargetGroupArn: (*string)(ko.Status.ACKResourceMetadata.ARN),
+	})
+	rm.metrics.RecordAPICall("READ_ONE", "DescribeTargetGroupAttributes", err)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert the attributes SDK type to the k8s API type
+	for _, attr := range resp.Attributes {
+		attribute := &svcapitypes.TargetGroupAttribute{
+			Key:   attr.Key,
+			Value: attr.Value,
+		}
+		attributes = append(attributes, attribute)
+	}
+	return attributes, nil
+}
+
+// updateTargetGroupAttributes updates the attributes of the target group.
+// It computes the full set of attributes to send to AWS:
+// - Desired attributes from the user spec are included with their values
+// - Attributes that exist in latest but are NOT in desired are included with
+//   an empty value to reset them to their default
+// - Attributes with nil/empty keys are skipped
+func (rm *resourceManager) updateTargetGroupAttributes(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) error {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.updateTargetGroupAttributes")
+	var err error
+	defer func() {
+		exit(err)
+	}()
+
+	// Build a map of desired attributes for quick lookup
+	desiredAttrs := make(map[string]string)
+	for _, attr := range desired.ko.Spec.Attributes {
+		if attr.Key == nil || *attr.Key == "" {
+			continue
+		}
+		if attr.Value != nil {
+			desiredAttrs[*attr.Key] = *attr.Value
+		} else {
+			desiredAttrs[*attr.Key] = ""
+		}
+	}
+
+	// Build the full set of attributes to send:
+	// 1. Start with all desired attributes
+	// 2. For any attribute that exists in latest but NOT in desired,
+	//    include it with an empty value to reset it to default
+	sdkAttributes := []svcsdktypes.TargetGroupAttribute{}
+	for key, value := range desiredAttrs {
+		sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+			Key:   &key,
+			Value: &value,
+		})
+	}
+	for _, attr := range latest.ko.Spec.Attributes {
+		if attr.Key == nil || *attr.Key == "" {
+			continue
+		}
+		if _, exists := desiredAttrs[*attr.Key]; !exists {
+			// Attribute exists in latest but not in desired — reset it to default
+			emptyVal := ""
+			sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+				Key:   attr.Key,
+				Value: &emptyVal,
+			})
+		}
+	}
+
+	if len(sdkAttributes) == 0 {
+		return nil
+	}
+
+	input := &svcsdk.ModifyTargetGroupAttributesInput{
+		TargetGroupArn: (*string)(desired.ko.Status.ACKResourceMetadata.ARN),
+		Attributes:     sdkAttributes,
+	}
+	_, err = rm.sdkapi.ModifyTargetGroupAttributes(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "ModifyTargetGroupAttributes", err)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func compareTargetDescription(

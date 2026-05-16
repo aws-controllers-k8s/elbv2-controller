@@ -444,8 +444,8 @@ func TestUpdateTargetGroupAttributes_BuildsCompleteAttributeSet(t *testing.T) {
 		})
 	}
 	
-	// TestAccessLogAttributesScenario simulates the full lifecycle of
-	// access log related TargetGroup attributes:
+	// TestMultiAttributeLifecycleScenario simulates the full lifecycle of
+	// multiple TargetGroup attributes:
 	//
 	//	proxy_protocol_v2.enabled - boolean flag
 	//	deregistration_delay.timeout_seconds - timeout value
@@ -455,9 +455,9 @@ func TestUpdateTargetGroupAttributes_BuildsCompleteAttributeSet(t *testing.T) {
 	//
 	// This test verifies that multiple attributes can be set, modified,
 	// and removed together in a realistic controller reconciliation scenario.
-	func TestAccessLogAttributesScenario(t *testing.T) {
-		t.Run("step1_set_multiple_access_log_attributes", func(t *testing.T) {
-			// User configures multiple attributes including access log settings
+	func TestMultiAttributeLifecycleScenario(t *testing.T) {
+		t.Run("step1_set_multiple_attributes", func(t *testing.T) {
+			// User configures multiple attributes
 			desired := []*svcapitypes.TargetGroupAttribute{
 				{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
 				{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},

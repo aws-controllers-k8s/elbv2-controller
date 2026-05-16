@@ -398,6 +398,14 @@ type TargetGroupTuple struct {
 	Weight         *int64                                   `json:"weight,omitempty"`
 }
 
+// Information about a target group attribute.
+type TargetGroupAttribute struct {
+	// The name of the attribute.
+	Key   *string `json:"key,omitempty"`
+	// The value of the attribute.
+	Value *string `json:"value,omitempty"`
+}
+
 // Information about a target group.
 type TargetGroup_SDK struct {
 	HealthCheckEnabled         *bool     `json:"healthCheckEnabled,omitempty"`

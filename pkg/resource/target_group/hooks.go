@@ -54,11 +54,20 @@ func compareTargetGroupAttributes(
 	}
 }
 
-// targetGroupAttributesHaveChanged returns true if one of desired attributes (a) have
-// drifted from the latest attributes (b).
+// targetGroupAttributesHaveChanged returns true if the desired attributes (a) differ
+// from the latest attributes (b). It performs a bidirectional comparison:
+// - Checks if any desired attribute is missing or has a different value in latest
+// - Checks if any latest attribute is missing from desired (i.e., attribute was removed)
 func targetGroupAttributesHaveChanged(a, b []*svcapitypes.TargetGroupAttribute) bool {
+	// Check if any desired attribute is missing or different in latest
 	for _, attrA := range a {
 		if !containsExactTargetGroupAttribute(b, attrA) {
+			return true
+		}
+	}
+	// Check if any latest attribute is missing from desired (attribute removal)
+	for _, attrB := range b {
+		if !containsExactTargetGroupAttribute(a, attrB) {
 			return true
 		}
 	}
@@ -114,6 +123,11 @@ func (rm *resourceManager) getTargetGroupAttributes(
 }
 
 // updateTargetGroupAttributes updates the attributes of the target group.
+// It computes the full set of attributes to send to AWS:
+// - Desired attributes from the user spec are included with their values
+// - Attributes that exist in latest but are NOT in desired are included with
+//   an empty value to reset them to their default
+// - Attributes with nil/empty keys are skipped
 func (rm *resourceManager) updateTargetGroupAttributes(
 	ctx context.Context,
 	desired *resource,
@@ -126,17 +140,42 @@ func (rm *resourceManager) updateTargetGroupAttributes(
 		exit(err)
 	}()
 
-	sdkAttributes := []svcsdktypes.TargetGroupAttribute{}
+	// Build a map of desired attributes for quick lookup
+	desiredAttrs := make(map[string]string)
 	for _, attr := range desired.ko.Spec.Attributes {
-		// Only set non-empty attributes
-		if attr.Key == nil || attr.Value == nil || *attr.Key == "" || *attr.Value == "" {
+		if attr.Key == nil || *attr.Key == "" {
 			continue
 		}
-		sdkAttribute := svcsdktypes.TargetGroupAttribute{
-			Key:   attr.Key,
-			Value: attr.Value,
+		if attr.Value != nil {
+			desiredAttrs[*attr.Key] = *attr.Value
+		} else {
+			desiredAttrs[*attr.Key] = ""
 		}
-		sdkAttributes = append(sdkAttributes, sdkAttribute)
+	}
+
+	// Build the full set of attributes to send:
+	// 1. Start with all desired attributes
+	// 2. For any attribute that exists in latest but NOT in desired,
+	//    include it with an empty value to reset it to default
+	sdkAttributes := []svcsdktypes.TargetGroupAttribute{}
+	for key, value := range desiredAttrs {
+		sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+			Key:   &key,
+			Value: &value,
+		})
+	}
+	for _, attr := range latest.ko.Spec.Attributes {
+		if attr.Key == nil || *attr.Key == "" {
+			continue
+		}
+		if _, exists := desiredAttrs[*attr.Key]; !exists {
+			// Attribute exists in latest but not in desired — reset it to default
+			emptyVal := ""
+			sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+				Key:   attr.Key,
+				Value: &emptyVal,
+			})
+		}
 	}
 
 	if len(sdkAttributes) == 0 {

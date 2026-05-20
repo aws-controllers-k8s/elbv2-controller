@@ -15,6 +15,12 @@
 		}
 	}
 
-	if !delta.DifferentExcept("Spec.Targets") {
+	if delta.DifferentAt("Spec.Attributes") {
+		if err := rm.updateTargetGroupAttributes(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Targets", "Spec.Attributes") {
 		return desired, nil
 	}

@@ -211,6 +211,12 @@ func (rm *resourceManager) sdkFind(
 
 	rm.setStatusDefaults(ko)
 
+	// Set target group attributes
+	ko.Spec.Attributes, err = rm.getTargetGroupAttributes(ctx, ko)
+	if err != nil {
+		return nil, err
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -382,8 +388,8 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	if ko.Spec.Targets != nil {
-		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
+	if ko.Spec.Targets != nil || len(ko.Spec.Attributes) > 0 {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requeuing for post-create updates (targets or attributes)"), RequeueAfterUpdateDuration)
 	}
 
 	return &resource{ko}, nil
@@ -525,7 +531,13 @@ func (rm *resourceManager) sdkUpdate(
 		}
 	}
 
-	if !delta.DifferentExcept("Spec.Targets") {
+	if delta.DifferentAt("Spec.Attributes") {
+		if err := rm.updateTargetGroupAttributes(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Targets", "Spec.Attributes") {
 		return desired, nil
 	}
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)

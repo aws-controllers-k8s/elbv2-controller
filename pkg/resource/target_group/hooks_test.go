@@ -28,6 +28,7 @@ func TestContainsExactTargetGroupAttribute(t *testing.T) {
 	attributes := []*svcapitypes.TargetGroupAttribute{
 		{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
 		{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+		{Key: ptr("stickiness.enabled"), Value: nil},
 	}
 
 	tests := []struct {
@@ -56,9 +57,14 @@ func TestContainsExactTargetGroupAttribute(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "nil value in target",
+			name:     "nil value in target (base has non-nil value)",
 			target:   &svcapitypes.TargetGroupAttribute{Key: ptr("proxy_protocol_v2.enabled"), Value: nil},
 			expected: false,
+		},
+		{
+			name:     "both values nil with matching key",
+			target:   &svcapitypes.TargetGroupAttribute{Key: ptr("stickiness.enabled"), Value: nil},
+			expected: true,
 		},
 	}
 
@@ -218,99 +224,53 @@ func TestCompareTargetGroupAttributes(t *testing.T) {
 	}
 }
 
-func TestUpdateTargetGroupAttributes_BuildsCompleteAttributeSet(t *testing.T) {
-	// This test validates the logic of updateTargetGroupAttributes by
-	// checking that the function correctly builds a complete attribute set
-	// that includes both desired attributes and reset entries for removed attributes.
-
-	desired := &resource{
-		ko: &svcapitypes.TargetGroup{
-			Spec: svcapitypes.TargetGroupSpec{
-				Attributes: []*svcapitypes.TargetGroupAttribute{
-					{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
-				},
-			},
-		},
+func TestCustomBuildAttributesForUpdate(t *testing.T) {
+	desired := []*svcapitypes.TargetGroupAttribute{
+		{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+	}
+	latest := []*svcapitypes.TargetGroupAttribute{
+		{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
+		{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
+		{Key: ptr("slow_start.duration_seconds"), Value: ptr("30")},
 	}
 
-	latest := &resource{
-		ko: &svcapitypes.TargetGroup{
-			Spec: svcapitypes.TargetGroupSpec{
-				Attributes: []*svcapitypes.TargetGroupAttribute{
-					{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
-					{Key: ptr("deregistration_delay.timeout_seconds"), Value: ptr("60")},
-					{Key: ptr("slow_start.duration_seconds"), Value: ptr("30")},
-				},
-			},
-		},
-	}
+	result := customBuildAttributesForUpdate(desired, latest)
 
-	// Build the desired attributes map (same logic as updateTargetGroupAttributes)
-	desiredAttrs := make(map[string]string)
-	for _, attr := range desired.ko.Spec.Attributes {
-		if attr.Key == nil || *attr.Key == "" {
-			continue
-		}
-		if attr.Value != nil {
-			desiredAttrs[*attr.Key] = *attr.Value
-		} else {
-			desiredAttrs[*attr.Key] = ""
-		}
-	}
-
-	// Build the full set (same logic as updateTargetGroupAttributes)
-	type attrPair struct {
-		key   string
-		value string
-	}
-	var result []attrPair
-	for key, value := range desiredAttrs {
-		result = append(result, attrPair{key, value})
-	}
-	for _, attr := range latest.ko.Spec.Attributes {
-		if attr.Key == nil || *attr.Key == "" {
-			continue
-		}
-		if _, exists := desiredAttrs[*attr.Key]; !exists {
-			result = append(result, attrPair{*attr.Key, ""})
-		}
-	}
-
-	// Verify: proxy_protocol_v2.enabled should be "true"
 	foundProxy := false
-	// Verify: deregistration_delay.timeout_seconds should be reset to ""
 	foundDereg := false
-	// Verify: slow_start.duration_seconds should be reset to ""
 	foundSlow := false
 
-	for _, p := range result {
-		switch p.key {
+	for _, attr := range result {
+		if attr.Key == nil {
+			continue
+		}
+		switch *attr.Key {
 		case "proxy_protocol_v2.enabled":
 			foundProxy = true
-			if p.value != "true" {
-				t.Errorf("proxy_protocol_v2.enabled = %q, want %q", p.value, "true")
+			if attr.Value == nil || *attr.Value != "true" {
+				t.Errorf("proxy_protocol_v2.enabled = %v, want %q", attr.Value, "true")
 			}
 		case "deregistration_delay.timeout_seconds":
 			foundDereg = true
-			if p.value != "" {
-				t.Errorf("deregistration_delay.timeout_seconds = %q, want empty string (reset)", p.value)
+			if attr.Value == nil || *attr.Value != "" {
+				t.Errorf("deregistration_delay.timeout_seconds = %v, want empty string (reset)", attr.Value)
 			}
 		case "slow_start.duration_seconds":
 			foundSlow = true
-			if p.value != "" {
-				t.Errorf("slow_start.duration_seconds = %q, want empty string (reset)", p.value)
+			if attr.Value == nil || *attr.Value != "" {
+				t.Errorf("slow_start.duration_seconds = %v, want empty string (reset)", attr.Value)
 			}
 		}
 	}
 
 	if !foundProxy {
-		t.Error("proxy_protocol_v2.enabled should be present in the result")
+		t.Error("proxy_protocol_v2.enabled should be present")
 	}
 	if !foundDereg {
-		t.Error("deregistration_delay.timeout_seconds should be present in the result (reset to default)")
+		t.Error("deregistration_delay.timeout_seconds should be present (reset to default)")
 	}
 	if !foundSlow {
-		t.Error("slow_start.duration_seconds should be present in the result (reset to default)")
+		t.Error("slow_start.duration_seconds should be present (reset to default)")
 	}
 }
 
@@ -362,14 +322,18 @@ func TestDeregistrationDelayTimeoutScenario(t *testing.T) {
 		}
 
 		// Verify the update would send "60"
-		desiredAttrs := map[string]string{}
-		for _, attr := range desired {
-			if attr.Key != nil && *attr.Key != "" && attr.Value != nil {
-				desiredAttrs[*attr.Key] = *attr.Value
+		result := customBuildAttributesForUpdate(desired, latest)
+		found := false
+		for _, attr := range result {
+			if attr.Key != nil && *attr.Key == "deregistration_delay.timeout_seconds" {
+				found = true
+				if attr.Value == nil || *attr.Value != "60" {
+					t.Errorf("expected deregistration_delay.timeout_seconds=60, got=%v", attr.Value)
+				}
 			}
 		}
-		if v, ok := desiredAttrs["deregistration_delay.timeout_seconds"]; !ok || v != "60" {
-			t.Errorf("expected deregistration_delay.timeout_seconds=60, got=%v", v)
+		if !found {
+			t.Error("deregistration_delay.timeout_seconds not found in result")
 		}
 	})
 
@@ -505,49 +469,25 @@ func TestMultiAttributeLifecycleScenario(t *testing.T) {
 			t.Error("expected change: 2 attributes removed (preserve_client_ip, load_balancing.algorithm)")
 		}
 
-		// Build the attribute map to verify reset logic
-		desiredAttrs := map[string]string{}
-		for _, attr := range desired {
-			if attr.Key != nil && *attr.Key != "" {
-				if attr.Value != nil {
-					desiredAttrs[*attr.Key] = *attr.Value
-				} else {
-					desiredAttrs[*attr.Key] = ""
-				}
-			}
-		}
-
-		type attrPair struct {
-			key   string
-			value string
-		}
-		var result []attrPair
-		for key, value := range desiredAttrs {
-			result = append(result, attrPair{key, value})
-		}
-		for _, attr := range latest {
-			if attr.Key == nil || *attr.Key == "" {
-				continue
-			}
-			if _, exists := desiredAttrs[*attr.Key]; !exists {
-				result = append(result, attrPair{*attr.Key, ""})
-			}
-		}
+		result := customBuildAttributesForUpdate(desired, latest)
 
 		// Verify removed attributes get reset entries
 		foundPreserveClientIP := false
 		foundLBAlgorithm := false
-		for _, p := range result {
-			if p.key == "preserve_client_ip.enabled" {
-				foundPreserveClientIP = true
-				if p.value != "" {
-					t.Errorf("preserve_client_ip.enabled should be reset to empty string, got=%q", p.value)
-				}
+		for _, attr := range result {
+			if attr.Key == nil {
+				continue
 			}
-			if p.key == "load_balancing.algorithm.type" {
+			switch *attr.Key {
+			case "preserve_client_ip.enabled":
+				foundPreserveClientIP = true
+				if attr.Value == nil || *attr.Value != "" {
+					t.Errorf("preserve_client_ip.enabled should be empty string for reset, got=%v", attr.Value)
+				}
+			case "load_balancing.algorithm.type":
 				foundLBAlgorithm = true
-				if p.value != "" {
-					t.Errorf("load_balancing.algorithm.type should be reset to empty string, got=%q", p.value)
+				if attr.Value == nil || *attr.Value != "" {
+					t.Errorf("load_balancing.algorithm.type should be empty string for reset, got=%v", attr.Value)
 				}
 			}
 		}
@@ -559,15 +499,23 @@ func TestMultiAttributeLifecycleScenario(t *testing.T) {
 		}
 
 		// Verify kept attributes still have their values
-		for _, p := range result {
-			if p.key == "proxy_protocol_v2.enabled" && p.value != "true" {
-				t.Errorf("proxy_protocol_v2.enabled should be 'true', got=%q", p.value)
+		for _, attr := range result {
+			if attr.Key == nil {
+				continue
 			}
-			if p.key == "deregistration_delay.timeout_seconds" && p.value != "120" {
-				t.Errorf("deregistration_delay.timeout_seconds should be '120', got=%q", p.value)
-			}
-			if p.key == "slow_start.duration_seconds" && p.value != "60" {
-				t.Errorf("slow_start.duration_seconds should be '60', got=%q", p.value)
+			switch *attr.Key {
+			case "proxy_protocol_v2.enabled":
+				if attr.Value == nil || *attr.Value != "true" {
+					t.Errorf("proxy_protocol_v2.enabled should be 'true', got=%v", attr.Value)
+				}
+			case "deregistration_delay.timeout_seconds":
+				if attr.Value == nil || *attr.Value != "120" {
+					t.Errorf("deregistration_delay.timeout_seconds should be '120', got=%v", attr.Value)
+				}
+			case "slow_start.duration_seconds":
+				if attr.Value == nil || *attr.Value != "60" {
+					t.Errorf("slow_start.duration_seconds should be '60', got=%v", attr.Value)
+				}
 			}
 		}
 	})

@@ -515,6 +515,9 @@ func (rm *resourceManager) sdkUpdate(
 		exit(err)
 	}()
 	if delta.DifferentAt("Spec.Targets") {
+		if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
+			return nil, fmt.Errorf("target group ARN is not yet available")
+		}
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
 		arn := (string)(*latest.ko.Status.ACKResourceMetadata.ARN)
 		if len(removed) > 0 {

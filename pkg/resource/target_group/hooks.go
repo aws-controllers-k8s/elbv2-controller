@@ -17,6 +17,7 @@ package target_group
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
@@ -58,6 +59,12 @@ func compareTargetGroupAttributes(
 // from the latest attributes (b). It performs a bidirectional comparison:
 // - Checks if any desired attribute is missing or has a different value in latest
 // - Checks if any latest attribute is missing from desired (i.e., attribute was removed)
+//
+// When the desired set is empty, no change is reported. This is intentional:
+// removing some attributes resets them, but an entirely empty desired set means
+// the user has not opted into attribute management — we leave server-side
+// defaults untouched. Without this guard, the controller would loop: reset
+// attributes → AWS returns defaults → detect change → reset again.
 func targetGroupAttributesHaveChanged(a, b []*svcapitypes.TargetGroupAttribute) bool {
 	if len(a) == 0 {
 		return false
@@ -78,13 +85,14 @@ func targetGroupAttributesHaveChanged(a, b []*svcapitypes.TargetGroupAttribute) 
 }
 
 // containsExactTargetGroupAttribute returns true if the key is in the attributes slice
-// and has the same value.
+// and has the same value. Nil-value attributes with the same key are considered equal.
 func containsExactTargetGroupAttribute(attributes []*svcapitypes.TargetGroupAttribute, targetAttribute *svcapitypes.TargetGroupAttribute) bool {
 	for _, attribute := range attributes {
 		if attribute.Key != nil && targetAttribute.Key != nil &&
 			*attribute.Key == *targetAttribute.Key &&
-			attribute.Value != nil && targetAttribute.Value != nil &&
-			*attribute.Value == *targetAttribute.Value {
+			((attribute.Value == nil && targetAttribute.Value == nil) ||
+				(attribute.Value != nil && targetAttribute.Value != nil &&
+					*attribute.Value == *targetAttribute.Value)) {
 			return true
 		}
 	}
@@ -106,6 +114,9 @@ func (rm *resourceManager) getTargetGroupAttributes(
 	attributes := []*svcapitypes.TargetGroupAttribute{}
 	var resp *svcsdk.DescribeTargetGroupAttributesOutput
 
+	if ko.Status.ACKResourceMetadata == nil || ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil, fmt.Errorf("target group ARN is not yet available")
+	}
 	resp, err = rm.sdkapi.DescribeTargetGroupAttributes(ctx, &svcsdk.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: (*string)(ko.Status.ACKResourceMetadata.ARN),
 	})
@@ -125,11 +136,60 @@ func (rm *resourceManager) getTargetGroupAttributes(
 	return attributes, nil
 }
 
+// customBuildAttributesForUpdate builds the complete set of TargetGroupAttribute
+// to send in a ModifyTargetGroupAttributes API call. It merges:
+//   - Desired attributes from the user spec (key → value)
+//   - Reset entries for attributes that exist in latest but are NOT in desired
+//     (key → "") to return them to their AWS defaults
+//
+// This is a pure function, separated from updateTargetGroupAttributes so it can
+// be unit-tested without mocking the AWS SDK or resource manager.
+func customBuildAttributesForUpdate(
+	desired []*svcapitypes.TargetGroupAttribute,
+	latest []*svcapitypes.TargetGroupAttribute,
+) []svcsdktypes.TargetGroupAttribute {
+	desiredAttrs := make(map[string]string)
+	for _, attr := range desired {
+		if attr.Key == nil || *attr.Key == "" {
+			continue
+		}
+		if attr.Value != nil {
+			desiredAttrs[*attr.Key] = *attr.Value
+		} else {
+			desiredAttrs[*attr.Key] = ""
+		}
+	}
+
+	sdkAttributes := []svcsdktypes.TargetGroupAttribute{}
+	for key, value := range desiredAttrs {
+		sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+			Key:   &key,
+			Value: &value,
+		})
+	}
+	for _, attr := range latest {
+		if attr.Key == nil || *attr.Key == "" {
+			continue
+		}
+		if _, exists := desiredAttrs[*attr.Key]; !exists {
+			emptyVal := ""
+			sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
+				Key:   attr.Key,
+				Value: &emptyVal,
+			})
+		}
+	}
+	return sdkAttributes
+}
+
 // updateTargetGroupAttributes updates the attributes of the target group.
 // It computes the full set of attributes to send to AWS:
 // - Desired attributes from the user spec are included with their values
 // - Attributes that exist in latest but are NOT in desired are included with
-//   an empty value to reset them to their default
+//   an empty value to reset them to their default. Note: empty-string reset has
+//   not been verified against all attribute types. Enum attributes (e.g.
+//   stickiness.type, load_balancing.algorithm.type) and numeric attributes may
+//   reject an empty string. Test with your specific attribute set.
 // - Attributes with nil/empty keys are skipped
 func (rm *resourceManager) updateTargetGroupAttributes(
 	ctx context.Context,
@@ -143,46 +203,13 @@ func (rm *resourceManager) updateTargetGroupAttributes(
 		exit(err)
 	}()
 
-	// Build a map of desired attributes for quick lookup
-	desiredAttrs := make(map[string]string)
-	for _, attr := range desired.ko.Spec.Attributes {
-		if attr.Key == nil || *attr.Key == "" {
-			continue
-		}
-		if attr.Value != nil {
-			desiredAttrs[*attr.Key] = *attr.Value
-		} else {
-			desiredAttrs[*attr.Key] = ""
-		}
-	}
-
-	// Build the full set of attributes to send:
-	// 1. Start with all desired attributes
-	// 2. For any attribute that exists in latest but NOT in desired,
-	//    include it with an empty value to reset it to default
-	sdkAttributes := []svcsdktypes.TargetGroupAttribute{}
-	for key, value := range desiredAttrs {
-		sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
-			Key:   &key,
-			Value: &value,
-		})
-	}
-	for _, attr := range latest.ko.Spec.Attributes {
-		if attr.Key == nil || *attr.Key == "" {
-			continue
-		}
-		if _, exists := desiredAttrs[*attr.Key]; !exists {
-			// Attribute exists in latest but not in desired — reset it to default
-			emptyVal := ""
-			sdkAttributes = append(sdkAttributes, svcsdktypes.TargetGroupAttribute{
-				Key:   attr.Key,
-				Value: &emptyVal,
-			})
-		}
-	}
-
+	sdkAttributes := customBuildAttributesForUpdate(desired.ko.Spec.Attributes, latest.ko.Spec.Attributes)
 	if len(sdkAttributes) == 0 {
 		return nil
+	}
+
+	if desired.ko.Status.ACKResourceMetadata == nil || desired.ko.Status.ACKResourceMetadata.ARN == nil {
+		return fmt.Errorf("target group ARN is not yet available")
 	}
 
 	input := &svcsdk.ModifyTargetGroupAttributesInput{

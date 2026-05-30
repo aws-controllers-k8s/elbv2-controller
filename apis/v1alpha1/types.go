@@ -382,6 +382,11 @@ type TargetDescription struct {
 	ID               *string `json:"id,omitempty"`
 	Port             *int64  `json:"port,omitempty"`
 }
+// Information about a target group attribute.
+type TargetGroupAttribute struct {
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
 
 // Information about the target group stickiness for a rule.
 type TargetGroupStickinessConfig struct {
@@ -398,13 +403,6 @@ type TargetGroupTuple struct {
 	Weight         *int64                                   `json:"weight,omitempty"`
 }
 
-// Information about a target group attribute.
-type TargetGroupAttribute struct {
-	// The name of the attribute.
-	Key *string `json:"key,omitempty"`
-	// The value of the attribute.
-	Value *string `json:"value,omitempty"`
-}
 
 // Information about a target group.
 type TargetGroup_SDK struct {

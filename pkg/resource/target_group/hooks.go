@@ -184,13 +184,13 @@ func customBuildAttributesForUpdate(
 
 // updateTargetGroupAttributes updates the attributes of the target group.
 // It computes the full set of attributes to send to AWS:
-// - Desired attributes from the user spec are included with their values
-// - Attributes that exist in latest but are NOT in desired are included with
-//   an empty value to reset them to their default. Note: empty-string reset has
-//   not been verified against all attribute types. Enum attributes (e.g.
-//   stickiness.type, load_balancing.algorithm.type) and numeric attributes may
-//   reject an empty string. Test with your specific attribute set.
-// - Attributes with nil/empty keys are skipped
+//   - Desired attributes from the user spec are included with their values
+//   - Attributes that exist in latest but are NOT in desired are included with
+//     an empty value to reset them to their default. Note: empty-string reset has
+//     not been verified against all attribute types. Enum attributes (e.g.
+//     stickiness.type, load_balancing.algorithm.type) and numeric attributes may
+//     reject an empty string. Test with your specific attribute set.
+//   - Attributes with nil/empty keys are skipped
 func (rm *resourceManager) updateTargetGroupAttributes(
 	ctx context.Context,
 	desired *resource,

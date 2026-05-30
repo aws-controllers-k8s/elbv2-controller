@@ -50,7 +50,93 @@ If release name contains chart name it will be used as a full name.
 
 {{/* The rules a of ClusterRole or Role */}}
 {{- define "ack-elbv2-controller.rbac-rules" -}}
-SEDREPLACERULES
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ec2.services.k8s.aws
+  resources:
+  - securitygroups
+  - securitygroups/status
+  - subnets
+  - subnets/status
+  - vpcs
+  - vpcs/status
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - listeners
+  - loadbalancers
+  - rules
+  - targetgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - listeners/status
+  - loadbalancers/status
+  - targetgroups/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - elbv2.services.k8s.aws
+  resources:
+  - rules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - services.k8s.aws
+  resources:
+  - fieldexports
+  - iamroleselectors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.k8s.aws
+  resources:
+  - fieldexports/status
+  - iamroleselectors/status
+  verbs:
+  - get
+  - patch
+  - update
 {{- end }}
 
 {{/* Convert k/v map to string like: "key1=value1,key2=value2,..." */}}

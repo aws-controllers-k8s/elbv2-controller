@@ -382,6 +382,7 @@ type TargetDescription struct {
 	ID               *string `json:"id,omitempty"`
 	Port             *int64  `json:"port,omitempty"`
 }
+
 // Information about a target group attribute.
 type TargetGroupAttribute struct {
 	Key   *string `json:"key,omitempty"`
@@ -402,7 +403,6 @@ type TargetGroupTuple struct {
 	TargetGroupRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"targetGroupRef,omitempty"`
 	Weight         *int64                                   `json:"weight,omitempty"`
 }
-
 
 // Information about a target group.
 type TargetGroup_SDK struct {

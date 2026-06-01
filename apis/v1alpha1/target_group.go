@@ -25,6 +25,8 @@ import (
 // Information about a target group.
 type TargetGroupSpec struct {
 
+	// The target group attributes.
+	Attributes []*TargetGroupAttribute `json:"attributes,omitempty"`
 	// Indicates whether health checks are enabled. If the target type is lambda,
 	// health checks are disabled by default but can be enabled. If the target type
 	// is instance, ip, or alb, health checks are always enabled and can't be disabled.

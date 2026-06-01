@@ -211,6 +211,12 @@ func (rm *resourceManager) sdkFind(
 
 	rm.setStatusDefaults(ko)
 
+	// Set target group attributes
+	ko.Spec.Attributes, err = rm.getTargetGroupAttributes(ctx, ko)
+	if err != nil {
+		return nil, err
+	}
+
 	return &resource{ko}, nil
 }
 
@@ -382,8 +388,8 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	if ko.Spec.Targets != nil {
-		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requing due to register targets in UPDATE"), RequeueAfterUpdateDuration)
+	if ko.Spec.Targets != nil || len(ko.Spec.Attributes) > 0 {
+		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requeuing for post-create updates (targets or attributes)"), RequeueAfterUpdateDuration)
 	}
 
 	return &resource{ko}, nil
@@ -510,6 +516,9 @@ func (rm *resourceManager) sdkUpdate(
 	}()
 	if delta.DifferentAt("Spec.Targets") {
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
+		if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
+			return nil, fmt.Errorf("target group ARN is not yet available")
+		}
 		arn := (string)(*latest.ko.Status.ACKResourceMetadata.ARN)
 		if len(removed) > 0 {
 			err = rm.deregisterTargets(ctx, arn, removed)
@@ -525,9 +534,16 @@ func (rm *resourceManager) sdkUpdate(
 		}
 	}
 
-	if !delta.DifferentExcept("Spec.Targets") {
+	if delta.DifferentAt("Spec.Attributes") {
+		if err := rm.updateTargetGroupAttributes(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	if !delta.DifferentExcept("Spec.Targets", "Spec.Attributes") {
 		return desired, nil
 	}
+
 	input, err := rm.newUpdateRequestPayload(ctx, desired, delta)
 	if err != nil {
 		return nil, err

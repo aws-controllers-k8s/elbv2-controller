@@ -182,6 +182,12 @@ resources:
           path: Targets
         compare:
           is_ignored: true
+      Attributes:
+        from:
+          operation: ModifyTargetGroupAttributes
+          path: Attributes
+        compare:
+          is_ignored: true
     hooks:
       delta_pre_compare:
         code: customCompare(delta, a, b)

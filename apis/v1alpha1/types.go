@@ -383,6 +383,12 @@ type TargetDescription struct {
 	Port             *int64  `json:"port,omitempty"`
 }
 
+// Information about a target group attribute.
+type TargetGroupAttribute struct {
+	Key   *string `json:"key,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
 // Information about the target group stickiness for a rule.
 type TargetGroupStickinessConfig struct {
 	DurationSeconds *int64 `json:"durationSeconds,omitempty"`

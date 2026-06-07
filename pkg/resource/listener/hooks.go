@@ -59,7 +59,7 @@ func mergeLatestWeights(desired, latest *resource) {
 	// Build a map from TargetGroupARN to Weight from the latest (AWS) state
 	latestWeights := map[string]*int64{}
 	for _, action := range latest.ko.Spec.DefaultActions {
-		if action.ForwardConfig != nil {
+		if action != nil && action.ForwardConfig != nil {
 			for _, tg := range action.ForwardConfig.TargetGroups {
 				if tg.TargetGroupARN != nil {
 					latestWeights[*tg.TargetGroupARN] = tg.Weight
@@ -71,7 +71,7 @@ func mergeLatestWeights(desired, latest *resource) {
 	// Overwrite desired weights with latest weights for any target group
 	// that exists in both desired and latest.
 	for _, action := range desired.ko.Spec.DefaultActions {
-		if action.ForwardConfig != nil {
+		if action != nil && action.ForwardConfig != nil {
 			for _, tg := range action.ForwardConfig.TargetGroups {
 				if tg.TargetGroupARN != nil {
 					if w, ok := latestWeights[*tg.TargetGroupARN]; ok {

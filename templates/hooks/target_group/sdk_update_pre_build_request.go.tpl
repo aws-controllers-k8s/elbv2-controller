@@ -1,4 +1,4 @@
-	if delta.DifferentAt("Spec.Targets") {
+	if delta.DifferentAt("Spec.Targets") && !isTargetManagementIgnored(desired) {
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
 		if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 			return nil, fmt.Errorf("target group ARN is not yet available")

@@ -204,9 +204,13 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	rm.setStatusDefaults(ko)
-	err = rm.describeTargets(ctx, &resource{ko})
-	if err != nil {
-		return nil, err
+	// When target management is ignored, skip reading targets from AWS so that
+	// externally registered targets are not treated as drift.
+	if !isTargetManagementIgnored(r) {
+		err = rm.describeTargets(ctx, &resource{ko})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	rm.setStatusDefaults(ko)
@@ -388,7 +392,7 @@ func (rm *resourceManager) sdkCreate(
 	}
 
 	rm.setStatusDefaults(ko)
-	if ko.Spec.Targets != nil || len(ko.Spec.Attributes) > 0 {
+	if (ko.Spec.Targets != nil && !isTargetManagementIgnored(desired)) || len(ko.Spec.Attributes) > 0 {
 		return nil, ackrequeue.NeededAfter(fmt.Errorf("Requeuing for post-create updates (targets or attributes)"), RequeueAfterUpdateDuration)
 	}
 
@@ -514,7 +518,7 @@ func (rm *resourceManager) sdkUpdate(
 	defer func() {
 		exit(err)
 	}()
-	if delta.DifferentAt("Spec.Targets") {
+	if delta.DifferentAt("Spec.Targets") && !isTargetManagementIgnored(desired) {
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
 		if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 			return nil, fmt.Errorf("target group ARN is not yet available")

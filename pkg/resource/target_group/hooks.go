@@ -26,9 +26,31 @@ import (
 	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
+const (
+	// AnnotationTargetManagement controls how the controller manages targets
+	// registered with the target group. When set to "ignore", the controller
+	// will not read, register, or deregister targets — allowing an external
+	// controller to manage target registration independently.
+	AnnotationTargetManagement = "elbv2.services.k8s.aws/target-management"
+)
+
 var (
 	RequeueAfterUpdateDuration = 5 * time.Second
 )
+
+// isTargetManagementIgnored returns true if the resource has the
+// AnnotationTargetManagement annotation set to "ignore", indicating that
+// target registration should be managed by an external controller.
+func isTargetManagementIgnored(r *resource) bool {
+	if r == nil || r.ko == nil {
+		return false
+	}
+	annotations := r.ko.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	return annotations[AnnotationTargetManagement] == "ignore"
+}
 
 func customCompare(
 	delta *ackcompare.Delta,

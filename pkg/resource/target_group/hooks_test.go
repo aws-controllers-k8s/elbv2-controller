@@ -24,6 +24,10 @@ func ptr(s string) *string {
 	return &s
 }
 
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
 func TestContainsExactTargetGroupAttribute(t *testing.T) {
 	attributes := []*svcapitypes.TargetGroupAttribute{
 		{Key: ptr("proxy_protocol_v2.enabled"), Value: ptr("true")},
@@ -349,6 +353,153 @@ func TestMultiAttributeDriftScenario(t *testing.T) {
 
 		if targetGroupAttributesHaveDrifted(desired, latest) {
 			t.Error("expected no drift: all declared attributes match; undeclared attributes are left untouched")
+		}
+	})
+}
+
+func TestIsTargetManagementIgnored(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		expected    bool
+	}{
+		{
+			name:        "nil annotations",
+			annotations: nil,
+			expected:    false,
+		},
+		{
+			name:        "empty annotations",
+			annotations: map[string]string{},
+			expected:    false,
+		},
+		{
+			name: "annotation set to ignore",
+			annotations: map[string]string{
+				"elbv2.services.k8s.aws/target-management": "ignore",
+			},
+			expected: true,
+		},
+		{
+			name: "annotation set to other value",
+			annotations: map[string]string{
+				"elbv2.services.k8s.aws/target-management": "managed",
+			},
+			expected: false,
+		},
+		{
+			name: "other annotations present but not target-management",
+			annotations: map[string]string{
+				"some.other.annotation": "value",
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tg := &svcapitypes.TargetGroup{}
+			tg.SetAnnotations(tt.annotations)
+			r := &resource{ko: tg}
+			result := isTargetManagementIgnored(r)
+			if result != tt.expected {
+				t.Errorf("isTargetManagementIgnored() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsTargetManagementIgnoredNilResource(t *testing.T) {
+	if isTargetManagementIgnored(nil) {
+		t.Error("expected false for nil resource")
+	}
+
+	r := &resource{ko: nil}
+	if isTargetManagementIgnored(r) {
+		t.Error("expected false for resource with nil ko")
+	}
+}
+
+// TestCompareTargetDescriptionWithIgnoredAnnotation verifies that when target
+// management is ignored and sdkFind skips describeTargets, both desired and
+// latest have the same targets (from the k8s spec), resulting in no delta.
+func TestCompareTargetDescriptionWithIgnoredAnnotation(t *testing.T) {
+	t.Run("both nil targets - no delta", func(t *testing.T) {
+		delta := ackcompare.NewDelta()
+		desired := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: nil,
+			},
+		}}
+		latest := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: nil,
+			},
+		}}
+		compareTargetDescription(delta, desired, latest)
+		if len(delta.Differences) > 0 {
+			t.Error("expected no delta when both desired and latest have nil targets")
+		}
+	})
+
+	t.Run("same non-empty targets - no delta", func(t *testing.T) {
+		delta := ackcompare.NewDelta()
+		targets := []*svcapitypes.TargetDescription{
+			{ID: ptr("i-12345"), Port: int64Ptr(80)},
+		}
+		desired := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: targets,
+			},
+		}}
+		latest := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: targets,
+			},
+		}}
+		compareTargetDescription(delta, desired, latest)
+		if len(delta.Differences) > 0 {
+			t.Error("expected no delta when desired and latest have identical targets")
+		}
+	})
+
+	t.Run("desired empty, latest has targets - delta (simulates annotation NOT set)", func(t *testing.T) {
+		delta := ackcompare.NewDelta()
+		desired := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: nil,
+			},
+		}}
+		latest := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: []*svcapitypes.TargetDescription{
+					{ID: ptr("i-external")},
+				},
+			},
+		}}
+		compareTargetDescription(delta, desired, latest)
+		if len(delta.Differences) == 0 {
+			t.Error("expected delta when desired is empty and latest has targets (annotation not set)")
+		}
+	})
+
+	t.Run("desired has targets, latest empty - delta", func(t *testing.T) {
+		delta := ackcompare.NewDelta()
+		desired := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: []*svcapitypes.TargetDescription{
+					{ID: ptr("i-new-target")},
+				},
+			},
+		}}
+		latest := &resource{ko: &svcapitypes.TargetGroup{
+			Spec: svcapitypes.TargetGroupSpec{
+				Targets: nil,
+			},
+		}}
+		compareTargetDescription(delta, desired, latest)
+		if len(delta.Differences) == 0 {
+			t.Error("expected delta when desired has targets and latest is empty")
 		}
 	})
 }

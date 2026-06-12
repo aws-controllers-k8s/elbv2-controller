@@ -165,6 +165,8 @@ resources:
     tags:
       ignore: true
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_many_post_build_request:
         template_path: hooks/listener/sdk_read_many_post_build_request.go.tpl
   TargetGroup:

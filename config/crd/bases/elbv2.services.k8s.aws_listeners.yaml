@@ -72,6 +72,20 @@ spec:
                   properties:
                     certificateARN:
                       type: string
+                    certificateRef:
+                      description: Reference field for CertificateARN
+                      properties:
+                        from:
+                          description: |-
+                            AWSResourceReference provides all the values necessary to reference another
+                            k8s resource for finding the identifier(Id/ARN/Name)
+                          properties:
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                          type: object
+                      type: object
                     isDefault:
                       type: boolean
                   type: object

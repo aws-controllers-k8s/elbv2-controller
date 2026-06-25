@@ -118,7 +118,9 @@ type CapacityReservationStatus struct {
 // Information about an SSL server certificate.
 type Certificate struct {
 	CertificateARN *string `json:"certificateARN,omitempty"`
-	IsDefault      *bool   `json:"isDefault,omitempty"`
+	// Reference field for CertificateARN
+	CertificateRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"certificateRef,omitempty"`
+	IsDefault      *bool                                    `json:"isDefault,omitempty"`
 }
 
 // Information about the revocations used by a trust store.
@@ -357,10 +359,12 @@ type SourceIPConditionConfig struct {
 
 // Information about a subnet mapping.
 type SubnetMapping struct {
-	AllocationID       *string `json:"allocationID,omitempty"`
-	IPv6Address        *string `json:"ipv6Address,omitempty"`
-	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
-	SubnetID           *string `json:"subnetID,omitempty"`
+	AllocationID *string `json:"allocationID,omitempty"`
+	// Reference field for AllocationID
+	AllocationRef      *ackv1alpha1.AWSResourceReferenceWrapper `json:"allocationRef,omitempty"`
+	IPv6Address        *string                                  `json:"ipv6Address,omitempty"`
+	PrivateIPv4Address *string                                  `json:"privateIPv4Address,omitempty"`
+	SubnetID           *string                                  `json:"subnetID,omitempty"`
 	// Reference field for SubnetID
 	SubnetRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRef,omitempty"`
 }

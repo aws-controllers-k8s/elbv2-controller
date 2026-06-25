@@ -23,8 +23,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - acm.services.k8s.aws
+  resources:
+  - certificates
+  - certificates/status
+  verbs:
+  - get
+  - list
+- apiGroups:
   - ec2.services.k8s.aws
   resources:
+  - elasticipaddresses
+  - elasticipaddresses/status
   - securitygroups
   - securitygroups/status
   - subnets

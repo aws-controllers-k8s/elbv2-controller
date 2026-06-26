@@ -16,12 +16,19 @@ package rule
 import (
 	"testing"
 
+	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 )
+
+func tgRef(name string) *ackv1alpha1.AWSResourceReferenceWrapper {
+	return &ackv1alpha1.AWSResourceReferenceWrapper{
+		From: &ackv1alpha1.AWSResourceReference{Name: aws.String(name)},
+	}
+}
 
 func TestCustomCompareConditions(t *testing.T) {
 	tests := []struct {
@@ -687,6 +694,224 @@ func TestCustomCompareConditions(t *testing.T) {
 				if tt.deltaFieldCount > 0 {
 					assert.Equal(t, tt.deltaFieldCount, len(delta.Differences), "Delta field count mismatch")
 				}
+			} else {
+				assert.Equal(t, 0, len(delta.Differences), "Expected no delta but got: %v", delta.Differences)
+			}
+		})
+	}
+}
+
+func TestCustomCompareActions(t *testing.T) {
+	tests := []struct {
+		name        string
+		desired     *resource
+		observed    *resource
+		expectDelta bool
+	}{
+		{
+			name: "action-level ref in desired, absent in observed, same ARN - no delta",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								TargetGroupRef: tgRef("my-tg"),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			expectDelta: false,
+		},
+		{
+			name: "forwardConfig nested ref in desired, absent in observed, same ARN - no delta",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type: aws.String("forward"),
+								ForwardConfig: &svcapitypes.ForwardActionConfig{
+									TargetGroups: []*svcapitypes.TargetGroupTuple{
+										{
+											TargetGroupRef: tgRef("my-tg"),
+											TargetGroupARN: aws.String("arn:tg/abc"),
+											Weight:         aws.Int64(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type: aws.String("forward"),
+								ForwardConfig: &svcapitypes.ForwardActionConfig{
+									TargetGroups: []*svcapitypes.TargetGroupTuple{
+										{
+											TargetGroupARN: aws.String("arn:tg/abc"),
+											Weight:         aws.Int64(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectDelta: false,
+		},
+		{
+			name: "server-assigned Order, not set in desired - no delta",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								Order:          aws.Int64(1),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			expectDelta: false,
+		},
+		{
+			name: "different resolved ARN - delta expected",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								TargetGroupRef: tgRef("my-tg"),
+								TargetGroupARN: aws.String("arn:tg/new"),
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								TargetGroupARN: aws.String("arn:tg/old"),
+							},
+						},
+					},
+				},
+			},
+			expectDelta: true,
+		},
+		{
+			name: "different Order both set - delta expected",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								Order:          aws.Int64(1),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{
+								Type:           aws.String("forward"),
+								Order:          aws.Int64(2),
+								TargetGroupARN: aws.String("arn:tg/abc"),
+							},
+						},
+					},
+				},
+			},
+			expectDelta: true,
+		},
+		{
+			name: "different action count - delta expected",
+			desired: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/abc")},
+						},
+					},
+				},
+			},
+			observed: &resource{
+				ko: &svcapitypes.Rule{
+					Spec: svcapitypes.RuleSpec{
+						Actions: []*svcapitypes.Action{
+							{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/abc")},
+							{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/def")},
+						},
+					},
+				},
+			},
+			expectDelta: true,
+		},
+		{
+			name:        "nil desired resource should not panic",
+			desired:     nil,
+			observed:    &resource{ko: &svcapitypes.Rule{}},
+			expectDelta: false,
+		},
+		{
+			name:        "nil observed resource should not panic",
+			desired:     &resource{ko: &svcapitypes.Rule{}},
+			observed:    nil,
+			expectDelta: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delta := ackcompare.NewDelta()
+			customCompareActions(delta, tt.desired, tt.observed)
+
+			if tt.expectDelta {
+				assert.True(t, len(delta.Differences) > 0, "Expected delta but got none")
 			} else {
 				assert.Equal(t, 0, len(delta.Differences), "Expected no delta but got: %v", delta.Differences)
 			}

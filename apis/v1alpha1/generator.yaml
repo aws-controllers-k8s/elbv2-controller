@@ -104,6 +104,11 @@ resources:
           resource: Subnet
           path: Status.SubnetID
           service_name: ec2
+      SubnetMappings.AllocationID:
+        references:
+          resource: ElasticIPAddress
+          path: Status.AllocationID
+          service_name: ec2
       EnablePrefixForIPv6SourceNAT:
         late_initialize: {}
     update_operation:
@@ -145,6 +150,11 @@ resources:
         is_primary_key: true
         references:
           resource: LoadBalancer
+          path: Status.ACKResourceMetadata.ARN
+      Certificates.CertificateARN:
+        references:
+          resource: Certificate
+          service_name: acm
           path: Status.ACKResourceMetadata.ARN
       DefaultActions.Type:
         go_tag: json:"type,omitempty"

@@ -35,6 +35,9 @@ import (
 // +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=securitygroups,verbs=get;list
 // +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=securitygroups/status,verbs=get;list
 
+// +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=elasticipaddresses,verbs=get;list
+// +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=elasticipaddresses/status,verbs=get;list
+
 // +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=subnets,verbs=get;list
 // +kubebuilder:rbac:groups=ec2.services.k8s.aws,resources=subnets/status,verbs=get;list
 
@@ -50,6 +53,12 @@ func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) ack
 
 	if len(ko.Spec.SecurityGroupRefs) > 0 {
 		ko.Spec.SecurityGroups = nil
+	}
+
+	for f0idx, f0iter := range ko.Spec.SubnetMappings {
+		if f0iter.AllocationRef != nil {
+			ko.Spec.SubnetMappings[f0idx].AllocationID = nil
+		}
 	}
 
 	for f0idx, f0iter := range ko.Spec.SubnetMappings {
@@ -87,6 +96,12 @@ func (rm *resourceManager) ResolveReferences(
 		resourceHasReferences = resourceHasReferences || fieldHasReferences
 	}
 
+	if fieldHasReferences, err := rm.resolveReferenceForSubnetMappings_AllocationID(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
 	if fieldHasReferences, err := rm.resolveReferenceForSubnetMappings_SubnetID(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
@@ -108,6 +123,12 @@ func validateReferenceFields(ko *svcapitypes.LoadBalancer) error {
 
 	if len(ko.Spec.SecurityGroupRefs) > 0 && len(ko.Spec.SecurityGroups) > 0 {
 		return ackerr.ResourceReferenceAndIDNotSupportedFor("SecurityGroups", "SecurityGroupRefs")
+	}
+
+	for _, f0iter := range ko.Spec.SubnetMappings {
+		if f0iter.AllocationRef != nil && f0iter.AllocationID != nil {
+			return ackerr.ResourceReferenceAndIDNotSupportedFor("SubnetMappings.AllocationID", "SubnetMappings.AllocationRef")
+		}
 	}
 
 	for _, f0iter := range ko.Spec.SubnetMappings {
@@ -214,6 +235,99 @@ func getReferencedResourceState_SecurityGroup(
 			"SecurityGroup",
 			namespace, name,
 			"Status.ID")
+	}
+	return nil
+}
+
+// resolveReferenceForSubnetMappings_AllocationID reads the resource referenced
+// from SubnetMappings.AllocationRef field and sets the SubnetMappings.AllocationID
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForSubnetMappings_AllocationID(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.LoadBalancer,
+) (hasReferences bool, err error) {
+	for f0idx, f0iter := range ko.Spec.SubnetMappings {
+		if f0iter.AllocationRef != nil && f0iter.AllocationRef.From != nil {
+			hasReferences = true
+			arr := f0iter.AllocationRef.From
+			if arr.Name == nil || *arr.Name == "" {
+				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: SubnetMappings.AllocationRef")
+			}
+			namespace, err := ackrt.ResolveCrossNamespaceReference(
+				ctx,
+				rm.cfg.EnableCrossNamespace,
+				&ko.Status.Conditions,
+				ackrt.CrossNamespaceRefKindResource,
+				ko.ObjectMeta.GetNamespace(),
+				arr.Namespace,
+				*arr.Name,
+			)
+			if err != nil {
+				return hasReferences, err
+			}
+			obj := &ec2apitypes.ElasticIPAddress{}
+			if err := getReferencedResourceState_ElasticIPAddress(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+				return hasReferences, err
+			}
+			ko.Spec.SubnetMappings[f0idx].AllocationID = (*string)(obj.Status.AllocationID)
+		}
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_ElasticIPAddress looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_ElasticIPAddress(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *ec2apitypes.ElasticIPAddress,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"ElasticIPAddress",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"ElasticIPAddress",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"ElasticIPAddress",
+			namespace, name)
+	}
+	if obj.Status.AllocationID == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"ElasticIPAddress",
+			namespace, name,
+			"Status.AllocationID")
 	}
 	return nil
 }

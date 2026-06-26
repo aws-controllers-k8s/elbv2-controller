@@ -305,6 +305,11 @@ func (in *Certificate) DeepCopyInto(out *Certificate) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.CertificateRef != nil {
+		in, out := &in.CertificateRef, &out.CertificateRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.IsDefault != nil {
 		in, out := &in.IsDefault, &out.IsDefault
 		*out = new(bool)
@@ -1718,6 +1723,11 @@ func (in *SubnetMapping) DeepCopyInto(out *SubnetMapping) {
 		in, out := &in.AllocationID, &out.AllocationID
 		*out = new(string)
 		**out = **in
+	}
+	if in.AllocationRef != nil {
+		in, out := &in.AllocationRef, &out.AllocationRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.IPv6Address != nil {
 		in, out := &in.IPv6Address, &out.IPv6Address

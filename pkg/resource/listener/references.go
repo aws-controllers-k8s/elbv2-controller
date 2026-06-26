@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	acmapitypes "github.com/aws-controllers-k8s/acm-controller/apis/v1alpha1"
 	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrt "github.com/aws-controllers-k8s/runtime/pkg/runtime"
@@ -30,6 +31,9 @@ import (
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 )
+
+// +kubebuilder:rbac:groups=acm.services.k8s.aws,resources=certificates,verbs=get;list
+// +kubebuilder:rbac:groups=acm.services.k8s.aws,resources=certificates/status,verbs=get;list
 
 // +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=targetgroups,verbs=get;list
 // +kubebuilder:rbac:groups=elbv2.services.k8s.aws,resources=targetgroups/status,verbs=get;list
@@ -46,6 +50,12 @@ import (
 // values.
 func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) acktypes.AWSResource {
 	ko := rm.concreteResource(res).ko.DeepCopy()
+
+	for f0idx, f0iter := range ko.Spec.Certificates {
+		if f0iter.CertificateRef != nil {
+			ko.Spec.Certificates[f0idx].CertificateARN = nil
+		}
+	}
 
 	for f0idx, f0iter := range ko.Spec.DefaultActions {
 		if f0iter.ForwardConfig != nil {
@@ -86,6 +96,12 @@ func (rm *resourceManager) ResolveReferences(
 
 	resourceHasReferences := false
 	err := validateReferenceFields(ko)
+	if fieldHasReferences, err := rm.resolveReferenceForCertificates_CertificateARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
 	if fieldHasReferences, err := rm.resolveReferenceForDefaultActions_ForwardConfig_TargetGroups_TargetGroupARN(ctx, apiReader, ko); err != nil {
 		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
 	} else {
@@ -111,6 +127,12 @@ func (rm *resourceManager) ResolveReferences(
 // identifier field.
 func validateReferenceFields(ko *svcapitypes.Listener) error {
 
+	for _, f0iter := range ko.Spec.Certificates {
+		if f0iter.CertificateRef != nil && f0iter.CertificateARN != nil {
+			return ackerr.ResourceReferenceAndIDNotSupportedFor("Certificates.CertificateARN", "Certificates.CertificateRef")
+		}
+	}
+
 	for _, f0iter := range ko.Spec.DefaultActions {
 		if f0iter.ForwardConfig != nil {
 			for _, f1iter := range f0iter.ForwardConfig.TargetGroups {
@@ -132,6 +154,99 @@ func validateReferenceFields(ko *svcapitypes.Listener) error {
 	}
 	if ko.Spec.LoadBalancerRef == nil && ko.Spec.LoadBalancerARN == nil {
 		return ackerr.ResourceReferenceOrIDRequiredFor("LoadBalancerARN", "LoadBalancerRef")
+	}
+	return nil
+}
+
+// resolveReferenceForCertificates_CertificateARN reads the resource referenced
+// from Certificates.CertificateRef field and sets the Certificates.CertificateARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForCertificates_CertificateARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.Listener,
+) (hasReferences bool, err error) {
+	for f0idx, f0iter := range ko.Spec.Certificates {
+		if f0iter.CertificateRef != nil && f0iter.CertificateRef.From != nil {
+			hasReferences = true
+			arr := f0iter.CertificateRef.From
+			if arr.Name == nil || *arr.Name == "" {
+				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: Certificates.CertificateRef")
+			}
+			namespace, err := ackrt.ResolveCrossNamespaceReference(
+				ctx,
+				rm.cfg.EnableCrossNamespace,
+				&ko.Status.Conditions,
+				ackrt.CrossNamespaceRefKindResource,
+				ko.ObjectMeta.GetNamespace(),
+				arr.Namespace,
+				*arr.Name,
+			)
+			if err != nil {
+				return hasReferences, err
+			}
+			obj := &acmapitypes.Certificate{}
+			if err := getReferencedResourceState_Certificate(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+				return hasReferences, err
+			}
+			ko.Spec.Certificates[f0idx].CertificateARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+		}
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_Certificate looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_Certificate(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *acmapitypes.Certificate,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"Certificate",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"Certificate",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"Certificate",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"Certificate",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
 	}
 	return nil
 }

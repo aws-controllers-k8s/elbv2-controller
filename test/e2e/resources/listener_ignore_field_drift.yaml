@@ -1,0 +1,22 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: Listener
+metadata:
+  name: $LISTENER_NAME
+  annotations:
+    services.k8s.aws/ignore-field-drift: "$IGNORE_PATHS"
+spec:
+  defaultActions:
+  - type: "forward"
+    forwardConfig:
+      targetGroups:
+      - targetGroupRef:
+          from:
+            name: $TARGET_GROUP_NAME_1
+        weight: $WEIGHT_1
+      - targetGroupRef:
+          from:
+            name: $TARGET_GROUP_NAME_2
+        weight: $WEIGHT_2
+  loadBalancerARN: $LOAD_BALANCER_ARN
+  port: 80
+  protocol: "HTTP"

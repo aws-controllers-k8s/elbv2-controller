@@ -1,0 +1,10 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: TargetGroup
+metadata:
+  name: $TARGET_GROUP_NAME
+spec:
+  name: $TARGET_GROUP_NAME
+  targetType: ip
+  protocol: HTTP
+  port: 80
+  vpcID: $VPC_ID

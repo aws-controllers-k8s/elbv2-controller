@@ -175,17 +175,17 @@ spec:
                   target group. You can't specify targets for a target group using more than
                   one target type.
 
-                    - instance - Register targets by instance ID. This is the default value.
+                     * instance - Register targets by instance ID. This is the default value.
 
-                    - ip - Register targets by IP address. You can specify IP addresses from
-                      the subnets of the virtual private cloud (VPC) for the target group, the
-                      RFC 1918 range (10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16), and the
-                      RFC 6598 range (100.64.0.0/10). You can't specify publicly routable IP
-                      addresses.
+                     * ip - Register targets by IP address. You can specify IP addresses from
+                     the subnets of the virtual private cloud (VPC) for the target group, the
+                     RFC 1918 range (10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16), and the
+                     RFC 6598 range (100.64.0.0/10). You can't specify publicly routable IP
+                     addresses.
 
-                    - lambda - Register a single Lambda function as a target.
+                     * lambda - Register a single Lambda function as a target.
 
-                    - alb - Register a single Application Load Balancer as a target.
+                     * alb - Register a single Application Load Balancer as a target.
                 type: string
               targets:
                 description: The targets.

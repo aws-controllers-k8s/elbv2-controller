@@ -47,15 +47,15 @@ spec:
                   [TLS listeners] The name of the Application-Layer Protocol Negotiation (ALPN)
                   policy. You can specify one policy name. The following are the possible values:
 
-                    - HTTP1Only
+                     * HTTP1Only
 
-                    - HTTP2Only
+                     * HTTP2Only
 
-                    - HTTP2Optional
+                     * HTTP2Optional
 
-                    - HTTP2Preferred
+                     * HTTP2Preferred
 
-                    - None
+                     * None
 
                   For more information, see ALPN policies (https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#alpn-policies)
                   in the Network Load Balancers Guide.

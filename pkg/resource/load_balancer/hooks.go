@@ -15,6 +15,7 @@ package load_balancer
 
 import (
 	"context"
+	"fmt"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	"github.com/aws-controllers-k8s/elbv2-controller/pkg/resource/tags"
@@ -55,6 +56,9 @@ func (rm *resourceManager) getLoadBalancerAttributes(
 	attributes := []*svcapitypes.LoadBalancerAttribute{}
 	var resp *svcsdk.DescribeLoadBalancerAttributesOutput
 
+	if ko.Status.ACKResourceMetadata == nil || ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil, fmt.Errorf("load balancer ARN is not yet available")
+	}
 	resp, err = rm.sdkapi.DescribeLoadBalancerAttributes(ctx, &svcsdk.DescribeLoadBalancerAttributesInput{
 		LoadBalancerArn: (*string)(ko.Status.ACKResourceMetadata.ARN),
 	})
@@ -86,10 +90,23 @@ func attributesHaveChanged(a, b []*svcapitypes.LoadBalancerAttribute) bool {
 }
 
 // containsExactAttribute returns true if the key is in the attributes slice
-// and has the same value.
+// and has the same value. Nil-value attributes with the same key are considered
+// equal.
 func containsExactAttribute(attributes []*svcapitypes.LoadBalancerAttribute, targetAttribute *svcapitypes.LoadBalancerAttribute) bool {
+	if targetAttribute == nil || targetAttribute.Key == nil {
+		return false
+	}
 	for _, attribute := range attributes {
-		if *attribute.Key == *targetAttribute.Key && *attribute.Value == *targetAttribute.Value {
+		if attribute == nil || attribute.Key == nil || *attribute.Key != *targetAttribute.Key {
+			continue
+		}
+		if attribute.Value == nil || targetAttribute.Value == nil {
+			if attribute.Value == nil && targetAttribute.Value == nil {
+				return true
+			}
+			continue
+		}
+		if *attribute.Value == *targetAttribute.Value {
 			return true
 		}
 	}
@@ -120,6 +137,12 @@ func (rm *resourceManager) customUpdateLoadBalancer(
 	rlog := ackrtlog.FromContext(ctx)
 	exit := rlog.Trace("rm.customUpdateLoadBalancer")
 	defer func() { exit(err) }()
+
+	// Every helper below addresses the load balancer by ARN.
+	if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil ||
+		desired.ko.Status.ACKResourceMetadata == nil || desired.ko.Status.ACKResourceMetadata.ARN == nil {
+		return nil, fmt.Errorf("load balancer ARN is not yet available")
+	}
 
 	if delta.DifferentAt("Spec.Attributes") && len(desired.ko.Spec.Attributes) > 0 {
 		if err := rm.updateLoadBalancerAttributes(ctx, desired, latest); err != nil {

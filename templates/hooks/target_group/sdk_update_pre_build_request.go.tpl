@@ -1,4 +1,8 @@
 	if delta.DifferentAt("Spec.Targets") {
+		// Validate first: an unusable spec must not take live targets out of service.
+		if err = validateTargets(desired.ko.Spec.Targets); err != nil {
+			return nil, err
+		}
 		added, removed := getTargetsDifference(latest.ko.Spec.Targets, desired.ko.Spec.Targets)
 		if latest.ko.Status.ACKResourceMetadata == nil || latest.ko.Status.ACKResourceMetadata.ARN == nil {
 			return nil, fmt.Errorf("target group ARN is not yet available")

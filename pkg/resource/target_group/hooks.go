@@ -20,6 +20,7 @@ import (
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -184,60 +185,138 @@ func compareTargetDescription(
 	}
 }
 
-func areDifferentTarget(latest, desired *svcapitypes.TargetDescription) bool {
-	if (latest == nil && desired != nil) || (latest != nil && desired == nil) {
-		return true
+// validateTargets rejects a spec that RegisterTargets can never accept. An ID
+// is required on every target, so a missing one is a terminal error the user
+// must fix rather than something to retry.
+func validateTargets(targets []*svcapitypes.TargetDescription) error {
+	for i, t := range targets {
+		if t == nil || t.ID == nil || *t.ID == "" {
+			return ackerr.NewTerminalError(
+				fmt.Errorf("spec.targets[%d]: id is required", i),
+			)
+		}
 	}
-
-	if latest.Port != nil && desired.Port == nil {
-		desired.Port = latest.Port
-	}
-	if latest.AvailabilityZone != nil && desired.AvailabilityZone == nil {
-		desired.AvailabilityZone = latest.AvailabilityZone
-	}
-	if (latest.ID == nil && desired.ID != nil) || (latest.ID != nil && desired.ID == nil) ||
-		(latest.ID != nil && desired.ID != nil && *latest.ID != *desired.ID) ||
-		(latest.Port == nil && desired.Port != nil) || (latest.Port != nil && desired.Port != nil && *latest.Port != *desired.Port) ||
-		(latest.AvailabilityZone == nil && desired.AvailabilityZone != nil) ||
-		(latest.AvailabilityZone != nil && desired.AvailabilityZone != nil && *latest.AvailabilityZone != *desired.AvailabilityZone) {
-		return true
-	}
-
-	return false
+	return nil
 }
 
+// areDifferentTarget reports whether the two targets differ in any part of the
+// identity RegisterTargets and DeregisterTargets operate on: ID, Port and
+// AvailabilityZone. It does not modify either argument.
+func areDifferentTarget(latest, desired *svcapitypes.TargetDescription) bool {
+	if latest == nil || desired == nil {
+		return latest != nil || desired != nil
+	}
+	return !equalPtr(latest.ID, desired.ID) ||
+		!equalPtr(latest.Port, desired.Port) ||
+		!equalPtr(latest.AvailabilityZone, desired.AvailabilityZone)
+}
+
+// targetMatchesIgnoringUnset reports whether latest is the target that desired
+// identifies, treating a Port or AvailabilityZone the user omitted as matching
+// whatever AWS reports: AWS fills both in on read-back.
+func targetMatchesIgnoringUnset(latest, desired *svcapitypes.TargetDescription) bool {
+	if latest == nil || desired == nil {
+		return false
+	}
+	if !equalPtr(latest.ID, desired.ID) {
+		return false
+	}
+	if desired.Port != nil && !equalPtr(latest.Port, desired.Port) {
+		return false
+	}
+	if desired.AvailabilityZone != nil && !equalPtr(latest.AvailabilityZone, desired.AvailabilityZone) {
+		return false
+	}
+	return true
+}
+
+func equalPtr[T comparable](a, b *T) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+// findTarget returns the index of an unmatched latest target that desired
+// identifies, or -1. candidates are the indices of the latest targets sharing
+// desired's ID.
+func findTarget(
+	latest []*svcapitypes.TargetDescription,
+	candidates []int,
+	matched []bool,
+	desired *svcapitypes.TargetDescription,
+	exact bool,
+) int {
+	for _, i := range candidates {
+		if matched[i] {
+			continue
+		}
+		if exact {
+			if !areDifferentTarget(latest[i], desired) {
+				return i
+			}
+			continue
+		}
+		if targetMatchesIgnoringUnset(latest[i], desired) {
+			return i
+		}
+	}
+	return -1
+}
+
+// getTargetsDifference pairs each desired target with the latest target of the
+// same identity -- (ID, Port, AvailabilityZone), not ID alone, since the same
+// instance ID or IP may be registered on several ports -- and returns the
+// targets to register and to deregister. Exact identities are paired first, so
+// a target whose Port the user omitted cannot claim a fully specified one's.
 func getTargetsDifference(
 	latest []*svcapitypes.TargetDescription,
 	desired []*svcapitypes.TargetDescription,
 ) (added []*svcapitypes.TargetDescription, removed []*svcapitypes.TargetDescription) {
 
-	toAdd := make([]*svcapitypes.TargetDescription, 0, min(len(latest), len(desired)))
-	toDelete := make([]*svcapitypes.TargetDescription, 0, min(len(latest), len(desired)))
+	added = make([]*svcapitypes.TargetDescription, 0, len(desired))
+	removed = make([]*svcapitypes.TargetDescription, 0, len(latest))
 
-	am := make(map[string]*svcapitypes.TargetDescription)
-
-	for _, v := range latest {
-		am[*v.ID] = v
+	candidatesByID := make(map[string][]int, len(latest))
+	for i, t := range latest {
+		if t == nil || t.ID == nil {
+			continue
+		}
+		candidatesByID[*t.ID] = append(candidatesByID[*t.ID], i)
 	}
 
-	for _, v := range desired {
-		if t, ok := am[*v.ID]; !ok || areDifferentTarget(t, v) {
-			toAdd = append(toAdd, v)
+	matched := make([]bool, len(latest))
+	unpaired := make([]*svcapitypes.TargetDescription, 0, len(desired))
+
+	for _, d := range desired {
+		if d == nil || d.ID == nil {
+			// Invalid spec; reported as an addition so validateTargets gets to
+			// turn it into a terminal error on the update path.
+			added = append(added, d)
+			continue
+		}
+		if i := findTarget(latest, candidatesByID[*d.ID], matched, d, true); i >= 0 {
+			matched[i] = true
+			continue
+		}
+		unpaired = append(unpaired, d)
+	}
+
+	for _, d := range unpaired {
+		if i := findTarget(latest, candidatesByID[*d.ID], matched, d, false); i >= 0 {
+			matched[i] = true
+			continue
+		}
+		added = append(added, d)
+	}
+
+	for i, t := range latest {
+		if !matched[i] {
+			removed = append(removed, t)
 		}
 	}
 
-	bm := make(map[string]*svcapitypes.TargetDescription)
-	for _, v := range desired {
-		bm[*v.ID] = v
-	}
-
-	for _, v := range latest {
-		if _, ok := bm[*v.ID]; !ok {
-			toDelete = append(toDelete, v)
-		}
-	}
-
-	return toAdd, toDelete
+	return added, removed
 }
 
 func (rm *resourceManager) registerTargets(

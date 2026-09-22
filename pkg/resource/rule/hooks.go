@@ -16,6 +16,7 @@ package rule
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
@@ -41,6 +42,9 @@ func (rm *resourceManager) setRulePriority(
 	exit := rlog.Trace("rm.updateLoadBalancerAttributes")
 	defer func() { exit(err) }()
 
+	if res.ko.Status.ACKResourceMetadata == nil || res.ko.Status.ACKResourceMetadata.ARN == nil {
+		return fmt.Errorf("rule ARN is not yet available")
+	}
 	input := &svcsdk.SetRulePrioritiesInput{
 		RulePriorities: []svcsdktypes.RulePriorityPair{
 			{
@@ -71,8 +75,10 @@ func (rm *resourceManager) customCheckRequiredFieldsMissingMethod(
 //
 // Yes, the API takes a pointer to int64, but the SDK returns a pointer to string...
 func priorityFromSDK(sdkPriority *string) *int64 {
-	// Since this function is only used in the context of the SDK, we can safely
-	// assume that the SDK will never return a nil pointer nor a invalid value.
+	if sdkPriority == nil {
+		return nil
+	}
+	// The default rule reports a priority of "default", which Atoi maps to 0.
 	priority, _ := strconv.Atoi(*sdkPriority)
 	priorityInt64 := int64(priority)
 	return &priorityInt64
@@ -111,28 +117,16 @@ func customCompareConditions(
 		return
 	}
 
+	matchedObserved := make([]bool, len(b.ko.Spec.Conditions))
+
 	for _, desiredCond := range a.ko.Spec.Conditions {
-		var observedCond *svcapitypes.RuleCondition
-		if desiredCond.Field != nil {
-			for _, oc := range b.ko.Spec.Conditions {
-				if oc.Field != nil && *oc.Field == *desiredCond.Field {
-					observedCond = oc
-					break
-				}
-			}
-		}
-
-		if observedCond == nil {
+		i := matchConditionIndex(b.ko.Spec.Conditions, matchedObserved, desiredCond)
+		if i < 0 {
 			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
 			return
 		}
-
-		if (desiredCond.Field == nil && observedCond.Field != nil) ||
-			(desiredCond.Field != nil && observedCond.Field == nil) ||
-			(desiredCond.Field != nil && observedCond.Field != nil && *desiredCond.Field != *observedCond.Field) {
-			delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
-			return
-		}
+		matchedObserved[i] = true
+		observedCond := b.ko.Spec.Conditions[i]
 
 		// For host-header and path-pattern conditions, compare based on what's in desired
 		if desiredCond.Field != nil {
@@ -171,4 +165,39 @@ func customCompareConditions(
 			}
 		}
 	}
+}
+
+// matchConditionIndex returns the index of an as-yet unmatched observed
+// condition that corresponds to desired, or -1. ELBv2 permits several
+// http-header conditions on one rule, so conditions are paired on their header
+// name where they have one and each observed condition is claimed at most once;
+// pairing on field alone collapses them all onto the first observed condition.
+func matchConditionIndex(
+	observed []*svcapitypes.RuleCondition,
+	matched []bool,
+	desired *svcapitypes.RuleCondition,
+) int {
+	if desired == nil || desired.Field == nil {
+		return -1
+	}
+	fallback := -1
+	for i, oc := range observed {
+		if matched[i] || oc == nil || oc.Field == nil || *oc.Field != *desired.Field {
+			continue
+		}
+		if httpHeaderName(oc) == httpHeaderName(desired) {
+			return i
+		}
+		if fallback < 0 {
+			fallback = i
+		}
+	}
+	return fallback
+}
+
+func httpHeaderName(c *svcapitypes.RuleCondition) string {
+	if c.HTTPHeaderConfig == nil || c.HTTPHeaderConfig.HTTPHeaderName == nil {
+		return ""
+	}
+	return *c.HTTPHeaderConfig.HTTPHeaderName
 }

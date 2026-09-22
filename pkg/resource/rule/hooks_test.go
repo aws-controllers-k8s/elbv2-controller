@@ -693,3 +693,86 @@ func TestCustomCompareConditions(t *testing.T) {
 		})
 	}
 }
+
+func httpHeaderCondition(name string, values ...string) *svcapitypes.RuleCondition {
+	vals := make([]*string, 0, len(values))
+	for _, v := range values {
+		vals = append(vals, aws.String(v))
+	}
+	return &svcapitypes.RuleCondition{
+		Field: aws.String("http-header"),
+		HTTPHeaderConfig: &svcapitypes.HTTPHeaderConditionConfig{
+			HTTPHeaderName: aws.String(name),
+			Values:         vals,
+		},
+	}
+}
+
+func ruleWithConditions(conditions ...*svcapitypes.RuleCondition) *resource {
+	return &resource{ko: &svcapitypes.Rule{Spec: svcapitypes.RuleSpec{Conditions: conditions}}}
+}
+
+func TestCustomCompareConditionsMultipleHTTPHeaders(t *testing.T) {
+	tests := []struct {
+		name        string
+		desired     *resource
+		observed    *resource
+		expectDelta bool
+	}{
+		{
+			name:        "two http-header conditions in the same order - no delta",
+			desired:     ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "b")),
+			observed:    ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "b")),
+			expectDelta: false,
+		},
+		{
+			name:        "two http-header conditions returned in a different order - no delta",
+			desired:     ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "b")),
+			observed:    ruleWithConditions(httpHeaderCondition("X-B", "b"), httpHeaderCondition("X-A", "a")),
+			expectDelta: false,
+		},
+		{
+			name:        "one of two http-header conditions changed - delta expected",
+			desired:     ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "b")),
+			observed:    ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "changed")),
+			expectDelta: true,
+		},
+		{
+			name:        "header renamed - delta expected",
+			desired:     ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-B", "b")),
+			observed:    ruleWithConditions(httpHeaderCondition("X-A", "a"), httpHeaderCondition("X-C", "b")),
+			expectDelta: true,
+		},
+		{
+			name:        "nil condition in observed does not panic",
+			desired:     ruleWithConditions(httpHeaderCondition("X-A", "a")),
+			observed:    ruleWithConditions(nil),
+			expectDelta: true,
+		},
+		{
+			name:        "nil condition in desired does not panic",
+			desired:     ruleWithConditions(nil),
+			observed:    ruleWithConditions(httpHeaderCondition("X-A", "a")),
+			expectDelta: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delta := ackcompare.NewDelta()
+			customCompareConditions(delta, tt.desired, tt.observed)
+
+			if tt.expectDelta {
+				assert.True(t, len(delta.Differences) > 0, "Expected delta but got none")
+			} else {
+				assert.Equal(t, 0, len(delta.Differences), "Expected no delta but got: %v", delta.Differences)
+			}
+		})
+	}
+}
+
+func TestPriorityFromSDK(t *testing.T) {
+	assert.Nil(t, priorityFromSDK(nil))
+	assert.Equal(t, int64(3), *priorityFromSDK(aws.String("3")))
+	assert.Equal(t, int64(0), *priorityFromSDK(aws.String("default")))
+}

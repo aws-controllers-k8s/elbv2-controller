@@ -154,11 +154,8 @@ func (rm *resourceManager) resolveReferenceForDefaultActions_ForwardConfig_Targe
 					if arr.Name == nil || *arr.Name == "" {
 						return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.ForwardConfig.TargetGroups.TargetGroupRef")
 					}
-					namespace, err := ackrt.ResolveCrossNamespaceReference(
-						ctx,
+					namespace, _, err := ackrt.ValidateCrossNamespaceReference(
 						rm.cfg.EnableCrossNamespace,
-						&ko.Status.Conditions,
-						ackrt.CrossNamespaceRefKindResource,
 						ko.ObjectMeta.GetNamespace(),
 						arr.Namespace,
 						*arr.Name,
@@ -249,11 +246,8 @@ func (rm *resourceManager) resolveReferenceForDefaultActions_TargetGroupARN(
 			if arr.Name == nil || *arr.Name == "" {
 				return hasReferences, fmt.Errorf("provided resource reference is nil or empty: DefaultActions.TargetGroupRef")
 			}
-			namespace, err := ackrt.ResolveCrossNamespaceReference(
-				ctx,
+			namespace, _, err := ackrt.ValidateCrossNamespaceReference(
 				rm.cfg.EnableCrossNamespace,
-				&ko.Status.Conditions,
-				ackrt.CrossNamespaceRefKindResource,
 				ko.ObjectMeta.GetNamespace(),
 				arr.Namespace,
 				*arr.Name,
@@ -287,11 +281,8 @@ func (rm *resourceManager) resolveReferenceForLoadBalancerARN(
 		if arr.Name == nil || *arr.Name == "" {
 			return hasReferences, fmt.Errorf("provided resource reference is nil or empty: LoadBalancerRef")
 		}
-		namespace, err := ackrt.ResolveCrossNamespaceReference(
-			ctx,
+		namespace, _, err := ackrt.ValidateCrossNamespaceReference(
 			rm.cfg.EnableCrossNamespace,
-			&ko.Status.Conditions,
-			ackrt.CrossNamespaceRefKindResource,
 			ko.ObjectMeta.GetNamespace(),
 			arr.Namespace,
 			*arr.Name,

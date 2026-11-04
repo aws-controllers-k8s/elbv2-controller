@@ -135,6 +135,12 @@ resources:
       DefaultActions:
         compare:
           is_ignored: true
+        # keep the declared form in the spec; ReadOne still fills latest
+        set:
+          - method: Create
+            ignore: from
+          - method: Update
+            ignore: from
       DefaultActions.TargetGroupARN:
         references:
           resource: TargetGroup

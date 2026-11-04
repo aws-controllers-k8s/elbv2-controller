@@ -93,6 +93,12 @@ func oidc(secret *string, defaults bool) *svcapitypes.AuthenticateOIDCActionConf
 	return cfg
 }
 
+func oidcWithScope(scope string) *svcapitypes.AuthenticateOIDCActionConfig {
+	cfg := oidc(nil, true)
+	cfg.Scope = aws.String(scope)
+	return cfg
+}
+
 func TestNewResourceDelta_DefaultActions(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -211,6 +217,124 @@ func TestNewResourceDelta_DefaultActions(t *testing.T) {
 			},
 			observed:    []*svcapitypes.Action{forwardAsReturned(1, "arn:tg/a")},
 			expectDelta: true,
+		},
+		{
+			name: "stickiness removed from the spec must reach the load balancer",
+			desired: []*svcapitypes.Action{
+				{
+					Type: aws.String("forward"),
+					ForwardConfig: &svcapitypes.ForwardActionConfig{
+						TargetGroups: []*svcapitypes.TargetGroupTuple{
+							{TargetGroupARN: aws.String("arn:tg/a"), Weight: aws.Int64(90)},
+							{TargetGroupARN: aws.String("arn:tg/b"), Weight: aws.Int64(10)},
+						},
+					},
+				},
+			},
+			observed:    []*svcapitypes.Action{weightedForward(aws.Int64(1), 90, 10)},
+			expectDelta: true,
+		},
+		{
+			name: "weight removed from the spec must reach the load balancer",
+			desired: []*svcapitypes.Action{
+				{
+					Type: aws.String("forward"),
+					ForwardConfig: &svcapitypes.ForwardActionConfig{
+						TargetGroups: []*svcapitypes.TargetGroupTuple{
+							{TargetGroupARN: aws.String("arn:tg/a")},
+							{TargetGroupARN: aws.String("arn:tg/b"), Weight: aws.Int64(10)},
+						},
+						TargetGroupStickinessConfig: &svcapitypes.TargetGroupStickinessConfig{
+							Enabled: aws.Bool(true), DurationSeconds: aws.Int64(3600),
+						},
+					},
+				},
+			},
+			observed:    []*svcapitypes.Action{weightedForward(aws.Int64(1), 90, 10)},
+			expectDelta: true,
+		},
+		{
+			name: "target groups declared in another order than the service returns",
+			desired: []*svcapitypes.Action{
+				{
+					Type: aws.String("forward"),
+					ForwardConfig: &svcapitypes.ForwardActionConfig{
+						TargetGroups: []*svcapitypes.TargetGroupTuple{
+							{TargetGroupARN: aws.String("arn:tg/b"), Weight: aws.Int64(10)},
+							{TargetGroupARN: aws.String("arn:tg/a"), Weight: aws.Int64(90)},
+						},
+						TargetGroupStickinessConfig: &svcapitypes.TargetGroupStickinessConfig{
+							Enabled: aws.Bool(true), DurationSeconds: aws.Int64(3600),
+						},
+					},
+				},
+			},
+			observed:    []*svcapitypes.Action{weightedForward(aws.Int64(1), 90, 10)},
+			expectDelta: false,
+		},
+		{
+			name: "redirect host removed from the spec must reach the load balancer",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("redirect"), RedirectConfig: &svcapitypes.RedirectActionConfig{
+					Protocol: aws.String("HTTPS"), StatusCode: aws.String("HTTP_301"),
+				}},
+			},
+			observed: []*svcapitypes.Action{
+				{Type: aws.String("redirect"), Order: aws.Int64(1), RedirectConfig: &svcapitypes.RedirectActionConfig{
+					Protocol: aws.String("HTTPS"), Port: aws.String("#{port}"), Host: aws.String("www.example.com"),
+					Path: aws.String("/#{path}"), Query: aws.String("#{query}"), StatusCode: aws.String("HTTP_301"),
+				}},
+			},
+			expectDelta: true,
+		},
+		{
+			name: "fixed response without contentType, service fills text/plain",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("fixed-response"), FixedResponseConfig: &svcapitypes.FixedResponseActionConfig{StatusCode: aws.String("503")}},
+			},
+			observed: []*svcapitypes.Action{
+				{Type: aws.String("fixed-response"), Order: aws.Int64(1), FixedResponseConfig: &svcapitypes.FixedResponseActionConfig{
+					StatusCode: aws.String("503"), ContentType: aws.String("text/plain"),
+				}},
+			},
+			expectDelta: false,
+		},
+		{
+			name: "oidc scope removed from the spec must reach the load balancer",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("authenticate-oidc"), AuthenticateOIDCConfig: oidc(aws.String("s3cret"), false)},
+				{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/a")},
+			},
+			observed: []*svcapitypes.Action{
+				{Type: aws.String("authenticate-oidc"), Order: aws.Int64(1), AuthenticateOIDCConfig: oidcWithScope("email openid")},
+				forwardAsReturned(2, "arn:tg/a"),
+			},
+			expectDelta: true,
+		},
+		{
+			name: "oidc secret changed alone produces no delta, the service never returns it",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("authenticate-oidc"), AuthenticateOIDCConfig: oidc(aws.String("rotated"), false)},
+				{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/a")},
+			},
+			observed: []*svcapitypes.Action{
+				{Type: aws.String("authenticate-oidc"), Order: aws.Int64(1), AuthenticateOIDCConfig: oidc(nil, true)},
+				forwardAsReturned(2, "arn:tg/a"),
+			},
+			expectDelta: false,
+		},
+		{
+			name: "single action without order from the service",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/a")},
+			},
+			observed: []*svcapitypes.Action{
+				{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/a"), ForwardConfig: &svcapitypes.ForwardActionConfig{
+					TargetGroups:                []*svcapitypes.TargetGroupTuple{{TargetGroupARN: aws.String("arn:tg/a"), Weight: aws.Int64(1)}},
+					TargetGroupStickinessConfig: &svcapitypes.TargetGroupStickinessConfig{Enabled: aws.Bool(false)},
+				}},
+			},
+			expectDelta: false,
 		},
 		{
 			name: "action count differs",

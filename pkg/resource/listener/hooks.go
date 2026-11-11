@@ -68,6 +68,18 @@ func normalizeActions(actions []*svcapitypes.Action) []*svcapitypes.Action {
 		normalizeCognito(c.AuthenticateCognitoConfig)
 		out[i] = c
 	}
+	// DescribeListeners returns multiple actions in an order of its own,
+	// neither declared nor by Order, so compare them sorted by Order.
+	sort.SliceStable(out, func(i, j int) bool {
+		var oi, oj int64
+		if out[i] != nil {
+			oi = aws.ToInt64(out[i].Order)
+		}
+		if out[j] != nil {
+			oj = aws.ToInt64(out[j].Order)
+		}
+		return oi < oj
+	})
 	return out
 }
 

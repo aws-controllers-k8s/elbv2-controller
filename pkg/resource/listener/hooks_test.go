@@ -337,6 +337,18 @@ func TestNewResourceDelta_DefaultActions(t *testing.T) {
 			expectDelta: false,
 		},
 		{
+			name: "multiple actions returned in another order than declared",
+			desired: []*svcapitypes.Action{
+				{Type: aws.String("authenticate-oidc"), Order: aws.Int64(1), AuthenticateOIDCConfig: oidc(aws.String("s3cret"), false)},
+				{Type: aws.String("forward"), Order: aws.Int64(2), TargetGroupARN: aws.String("arn:tg/a")},
+			},
+			observed: []*svcapitypes.Action{
+				forwardAsReturned(2, "arn:tg/a"),
+				{Type: aws.String("authenticate-oidc"), Order: aws.Int64(1), AuthenticateOIDCConfig: oidc(nil, true)},
+			},
+			expectDelta: false,
+		},
+		{
 			name: "action count differs",
 			desired: []*svcapitypes.Action{
 				{Type: aws.String("forward"), TargetGroupARN: aws.String("arn:tg/a")},

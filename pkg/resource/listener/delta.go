@@ -41,6 +41,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customPreCompare(delta, a, b)
 
 	if len(a.ko.Spec.AlpnPolicy) != len(b.ko.Spec.AlpnPolicy) {
 		delta.Add("Spec.AlpnPolicy", a.ko.Spec.AlpnPolicy, b.ko.Spec.AlpnPolicy)
@@ -54,13 +55,6 @@ func newResourceDelta(
 	} else if len(a.ko.Spec.Certificates) > 0 {
 		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.Certificates, b.ko.Spec.Certificates) {
 			delta.Add("Spec.Certificates", a.ko.Spec.Certificates, b.ko.Spec.Certificates)
-		}
-	}
-	if len(a.ko.Spec.DefaultActions) != len(b.ko.Spec.DefaultActions) {
-		delta.Add("Spec.DefaultActions", a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions)
-	} else if len(a.ko.Spec.DefaultActions) > 0 {
-		if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions) {
-			delta.Add("Spec.DefaultActions", a.ko.Spec.DefaultActions, b.ko.Spec.DefaultActions)
 		}
 	}
 	if ackcompare.HasNilDifference(a.ko.Spec.LoadBalancerARN, b.ko.Spec.LoadBalancerARN) {

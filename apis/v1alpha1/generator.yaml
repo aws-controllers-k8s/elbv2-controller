@@ -132,6 +132,15 @@ resources:
   Listener:
     is_arn_primary_key: true
     fields:
+      DefaultActions:
+        compare:
+          is_ignored: true
+        # keep the declared form in the spec; ReadOne still fills latest
+        set:
+          - method: Create
+            ignore: from
+          - method: Update
+            ignore: from
       DefaultActions.TargetGroupARN:
         references:
           resource: TargetGroup
@@ -165,6 +174,8 @@ resources:
     tags:
       ignore: true
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(delta, a, b)
       sdk_read_many_post_build_request:
         template_path: hooks/listener/sdk_read_many_post_build_request.go.tpl
   TargetGroup:

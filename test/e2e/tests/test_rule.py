@@ -18,6 +18,7 @@ import logging
 import time
 
 import pytest
+from acktest.k8s import condition
 from acktest.k8s import resource as k8s
 from acktest.resources import random_suffix_name
 from e2e import CRD_GROUP, CRD_VERSION, load_elbv2_resource, service_marker
@@ -112,3 +113,13 @@ class TestRule:
         assert rule["Priority"] == "500"
         assert rule["Conditions"][0]["Field"] == "http-request-method"
         assert rule["Conditions"][0]["HttpRequestMethodConfig"]["Values"] == ["GET"]
+
+    def test_target_group_ref_preserved(self, simple_rule):
+        (ref, _) = simple_rule
+
+        condition.assert_synced(ref)
+
+        cr = k8s.get_resource(ref)
+        tg = cr["spec"]["actions"][0]["forwardConfig"]["targetGroups"][0]
+        assert "targetGroupRef" in tg
+        assert tg["targetGroupRef"]["from"]["name"] is not None

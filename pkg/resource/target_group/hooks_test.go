@@ -14,10 +14,14 @@
 package target_group
 
 import (
+	"errors"
+	"fmt"
+	"reflect"
 	"testing"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 )
 
 func ptr(s string) *string {
@@ -351,4 +355,287 @@ func TestMultiAttributeDriftScenario(t *testing.T) {
 			t.Error("expected no drift: all declared attributes match; undeclared attributes are left untouched")
 		}
 	})
+}
+
+func i64(v int64) *int64 {
+	return &v
+}
+
+func target(id string, port *int64, az *string) *svcapitypes.TargetDescription {
+	return &svcapitypes.TargetDescription{ID: ptr(id), Port: port, AvailabilityZone: az}
+}
+
+func targetIDs(targets []*svcapitypes.TargetDescription) []string {
+	out := make([]string, 0, len(targets))
+	for _, t := range targets {
+		switch {
+		case t == nil:
+			out = append(out, "<nil>")
+		case t.ID == nil:
+			out = append(out, "<nil-id>")
+		case t.Port == nil:
+			out = append(out, *t.ID)
+		default:
+			out = append(out, fmt.Sprintf("%s:%d", *t.ID, *t.Port))
+		}
+	}
+	return out
+}
+
+func TestGetTargetsDifference(t *testing.T) {
+	tests := []struct {
+		name    string
+		latest  []*svcapitypes.TargetDescription
+		desired []*svcapitypes.TargetDescription
+		added   []string
+		removed []string
+	}{
+		{
+			name:    "same instance on two ports is unchanged",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			added:   []string{},
+			removed: []string{},
+		},
+		{
+			name:    "same instance on two ports in a different order is unchanged",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(443), nil), target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			added:   []string{},
+			removed: []string{},
+		},
+		{
+			name:    "same ip on three ports with aws supplied availability zone is unchanged",
+			latest:  []*svcapitypes.TargetDescription{target("10.0.0.1", i64(80), ptr("us-west-2a")), target("10.0.0.1", i64(443), ptr("us-west-2a")), target("10.0.0.1", i64(8080), ptr("us-west-2a"))},
+			desired: []*svcapitypes.TargetDescription{target("10.0.0.1", i64(80), nil), target("10.0.0.1", i64(443), nil), target("10.0.0.1", i64(8080), nil)},
+			added:   []string{},
+			removed: []string{},
+		},
+		{
+			name:    "omitted port matches the port aws reports",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), ptr("us-west-2a"))},
+			desired: []*svcapitypes.TargetDescription{target("i-1", nil, nil)},
+			added:   []string{},
+			removed: []string{},
+		},
+		{
+			name:    "one of two ports removed",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			added:   []string{},
+			removed: []string{"i-1:443"},
+		},
+		{
+			name:    "one more port added to an existing instance",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			added:   []string{"i-1:443"},
+			removed: []string{},
+		},
+		{
+			name:    "port changed on the only target",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(8080), nil)},
+			added:   []string{"i-1:8080"},
+			removed: []string{"i-1:80"},
+		},
+		{
+			name:    "availability zone changed",
+			latest:  []*svcapitypes.TargetDescription{target("10.0.0.1", i64(80), ptr("us-west-2a"))},
+			desired: []*svcapitypes.TargetDescription{target("10.0.0.1", i64(80), ptr("us-west-2b"))},
+			added:   []string{"10.0.0.1:80"},
+			removed: []string{"10.0.0.1:80"},
+		},
+		{
+			name:    "different instance replaces the old one",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-2", i64(80), nil)},
+			added:   []string{"i-2:80"},
+			removed: []string{"i-1:80"},
+		},
+		{
+			name:    "exact identity is paired before an omitted port claims it",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", nil, nil), target("i-1", i64(443), nil)},
+			added:   []string{},
+			removed: []string{},
+		},
+		{
+			name:    "nil id in desired does not panic",
+			latest:  []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), {Port: i64(443)}},
+			added:   []string{"<nil-id>"},
+			removed: []string{},
+		},
+		{
+			name:    "nil id in latest does not panic",
+			latest:  []*svcapitypes.TargetDescription{{Port: i64(443)}, target("i-1", i64(80), nil)},
+			desired: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil)},
+			added:   []string{},
+			removed: []string{"<nil-id>"},
+		},
+		{
+			name:    "nil entries in both lists do not panic",
+			latest:  []*svcapitypes.TargetDescription{nil},
+			desired: []*svcapitypes.TargetDescription{nil},
+			added:   []string{"<nil>"},
+			removed: []string{"<nil>"},
+		},
+		{
+			name:    "empty on both sides",
+			latest:  []*svcapitypes.TargetDescription{},
+			desired: []*svcapitypes.TargetDescription{},
+			added:   []string{},
+			removed: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			added, removed := getTargetsDifference(tt.latest, tt.desired)
+			if got := targetIDs(added); !reflect.DeepEqual(got, tt.added) {
+				t.Errorf("added = %v, want %v", got, tt.added)
+			}
+			if got := targetIDs(removed); !reflect.DeepEqual(got, tt.removed) {
+				t.Errorf("removed = %v, want %v", got, tt.removed)
+			}
+		})
+	}
+}
+
+func TestCompareTargetDescriptionMultiPortNoDelta(t *testing.T) {
+	desired := []*svcapitypes.TargetDescription{
+		target("i-1", i64(80), nil),
+		target("i-1", i64(443), nil),
+		target("i-2", i64(80), nil),
+	}
+	latest := []*svcapitypes.TargetDescription{
+		target("i-1", i64(80), ptr("us-west-2a")),
+		target("i-1", i64(443), ptr("us-west-2a")),
+		target("i-2", i64(80), ptr("us-west-2b")),
+	}
+
+	delta := ackcompare.NewDelta()
+	a := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Targets: desired}}}
+	b := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Targets: latest}}}
+	compareTargetDescription(delta, a, b)
+
+	if len(delta.Differences) != 0 {
+		t.Errorf("expected no delta for the same instance registered on several ports, got %d differences", len(delta.Differences))
+	}
+}
+
+func TestCompareTargetDescriptionDoesNotMutateDesired(t *testing.T) {
+	desired := []*svcapitypes.TargetDescription{
+		target("i-1", nil, nil),
+		target("i-2", i64(80), nil),
+	}
+	latest := []*svcapitypes.TargetDescription{
+		target("i-1", i64(80), ptr("us-west-2a")),
+		target("i-2", i64(80), ptr("us-west-2b")),
+	}
+	desiredBefore := deepCopyTargets(desired)
+	latestBefore := deepCopyTargets(latest)
+
+	delta := ackcompare.NewDelta()
+	a := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Targets: desired}}}
+	b := &resource{ko: &svcapitypes.TargetGroup{Spec: svcapitypes.TargetGroupSpec{Targets: latest}}}
+	compareTargetDescription(delta, a, b)
+
+	if !reflect.DeepEqual(desired, desiredBefore) {
+		t.Errorf("compareTargetDescription mutated desired: got %+v, want %+v", targetIDs(desired), targetIDs(desiredBefore))
+	}
+	if !reflect.DeepEqual(latest, latestBefore) {
+		t.Errorf("compareTargetDescription mutated latest: got %+v, want %+v", targetIDs(latest), targetIDs(latestBefore))
+	}
+}
+
+func TestAreDifferentTargetDoesNotMutate(t *testing.T) {
+	desired := target("i-1", nil, nil)
+	latest := target("i-1", i64(80), ptr("us-west-2a"))
+
+	if !areDifferentTarget(latest, desired) {
+		t.Error("expected targets with different ports to be reported as different")
+	}
+	if desired.Port != nil {
+		t.Errorf("areDifferentTarget wrote Port %d back into desired", *desired.Port)
+	}
+	if desired.AvailabilityZone != nil {
+		t.Errorf("areDifferentTarget wrote AvailabilityZone %q back into desired", *desired.AvailabilityZone)
+	}
+}
+
+func TestAreDifferentTargetNilHandling(t *testing.T) {
+	if areDifferentTarget(nil, nil) {
+		t.Error("expected two nil targets to be equal")
+	}
+	if !areDifferentTarget(nil, target("i-1", nil, nil)) {
+		t.Error("expected a nil latest to differ from a non-nil desired")
+	}
+	if !areDifferentTarget(target("i-1", nil, nil), nil) {
+		t.Error("expected a non-nil latest to differ from a nil desired")
+	}
+}
+
+func TestValidateTargets(t *testing.T) {
+	tests := []struct {
+		name     string
+		targets  []*svcapitypes.TargetDescription
+		wantErr  bool
+		terminal bool
+	}{
+		{
+			name:    "all targets have an id",
+			targets: []*svcapitypes.TargetDescription{target("i-1", i64(80), nil), target("i-1", i64(443), nil)},
+		},
+		{
+			name:    "no targets",
+			targets: []*svcapitypes.TargetDescription{},
+		},
+		{
+			name:     "nil id is terminal",
+			targets:  []*svcapitypes.TargetDescription{{Port: i64(80)}},
+			wantErr:  true,
+			terminal: true,
+		},
+		{
+			name:     "empty id is terminal",
+			targets:  []*svcapitypes.TargetDescription{target("", i64(80), nil)},
+			wantErr:  true,
+			terminal: true,
+		},
+		{
+			name:     "nil target is terminal",
+			targets:  []*svcapitypes.TargetDescription{nil},
+			wantErr:  true,
+			terminal: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTargets(tt.targets)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validateTargets() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.terminal {
+				var terminal *ackerr.TerminalError
+				if !errors.As(err, &terminal) {
+					t.Errorf("validateTargets() error = %v, want a terminal error", err)
+				}
+			}
+		})
+	}
+}
+
+func deepCopyTargets(targets []*svcapitypes.TargetDescription) []*svcapitypes.TargetDescription {
+	out := make([]*svcapitypes.TargetDescription, 0, len(targets))
+	for _, t := range targets {
+		if t == nil {
+			out = append(out, nil)
+			continue
+		}
+		out = append(out, t.DeepCopy())
+	}
+	return out
 }

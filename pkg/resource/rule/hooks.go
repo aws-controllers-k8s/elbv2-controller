@@ -91,6 +91,59 @@ func customPreCompare(
 	b *resource,
 ) {
 	customCompareConditions(delta, a, b)
+	customCompareTransforms(delta, a, b)
+}
+
+// customCompareTransforms compares Rule transforms by type, so the order in
+// which ELBv2 returns them does not cause a diff.
+func customCompareTransforms(
+	delta *ackcompare.Delta,
+	a *resource,
+	b *resource,
+) {
+	if a == nil || b == nil {
+		return
+	}
+	if !transformsEqual(a.ko.Spec.Transforms, b.ko.Spec.Transforms) {
+		delta.Add("Spec.Transforms", a.ko.Spec.Transforms, b.ko.Spec.Transforms)
+	}
+}
+
+func transformsEqual(a, b []*svcapitypes.RuleTransform) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	byType := map[string]*svcapitypes.RuleTransform{}
+	for _, t := range b {
+		if t != nil && t.Type != nil {
+			byType[*t.Type] = t
+		}
+	}
+	for _, t := range a {
+		if t == nil || t.Type == nil {
+			return equality.Semantic.Equalities.DeepEqual(a, b)
+		}
+		o, ok := byType[*t.Type]
+		if !ok || !equality.Semantic.Equalities.DeepEqual(t, o) {
+			return false
+		}
+		// Each type matches once, so duplicate types in a are never equal.
+		delete(byType, *t.Type)
+	}
+	return true
+}
+
+// setResetTransforms makes ModifyRule remove all transforms when the desired
+// Rule has none: an empty Transforms list alone leaves the current ones.
+func setResetTransforms(
+	delta *ackcompare.Delta,
+	desired *resource,
+	input *svcsdk.ModifyRuleInput,
+) {
+	if delta.DifferentAt("Spec.Transforms") && len(desired.ko.Spec.Transforms) == 0 {
+		input.Transforms = nil
+		input.ResetTransforms = aws.Bool(true)
+	}
 }
 
 // customCompareConditions performs custom comparison for Rule conditions.
@@ -150,6 +203,12 @@ func customCompareConditions(
 						return
 					}
 				}
+				if desiredCond.RegexValues != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.RegexValues, observedCond.RegexValues) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
 			case "path-pattern":
 				if desiredCond.PathPatternConfig != nil {
 					if !equality.Semantic.Equalities.DeepEqual(desiredCond.PathPatternConfig, observedCond.PathPatternConfig) {
@@ -159,6 +218,12 @@ func customCompareConditions(
 				}
 				if desiredCond.Values != nil {
 					if !equality.Semantic.Equalities.DeepEqual(desiredCond.Values, observedCond.Values) {
+						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
+						return
+					}
+				}
+				if desiredCond.RegexValues != nil {
+					if !equality.Semantic.Equalities.DeepEqual(desiredCond.RegexValues, observedCond.RegexValues) {
 						delta.Add("Spec.Conditions", a.ko.Spec.Conditions, b.ko.Spec.Conditions)
 						return
 					}

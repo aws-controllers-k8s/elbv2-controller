@@ -240,6 +240,10 @@ spec:
                     hostHeaderConfig:
                       description: Information about a host header condition.
                       properties:
+                        regexValues:
+                          items:
+                            type: string
+                          type: array
                         values:
                           items:
                             type: string
@@ -254,6 +258,10 @@ spec:
                       properties:
                         httpHeaderName:
                           type: string
+                        regexValues:
+                          items:
+                            type: string
+                          type: array
                         values:
                           items:
                             type: string
@@ -275,6 +283,10 @@ spec:
                     pathPatternConfig:
                       description: Information about a path pattern condition.
                       properties:
+                        regexValues:
+                          items:
+                            type: string
+                          type: array
                         values:
                           items:
                             type: string
@@ -300,6 +312,10 @@ spec:
                             type: object
                           type: array
                       type: object
+                    regexValues:
+                      items:
+                        type: string
+                      type: array
                     sourceIPConfig:
                       description: |-
                         Information about a source IP condition.
@@ -353,6 +369,56 @@ spec:
                       type: string
                     value:
                       type: string
+                  type: object
+                type: array
+              transforms:
+                description: |-
+                  The transforms to apply to requests that match this rule. You can add one
+                  host header rewrite transform and one URL rewrite transform.
+                items:
+                  description: |-
+                    Information about a transform to apply to requests that match a rule. Transforms
+                    are applied to requests before they are sent to targets.
+                  properties:
+                    hostHeaderRewriteConfig:
+                      description: |-
+                        Information about a host header rewrite transform. This transform matches
+                        a pattern in the host header in an HTTP request and replaces it with the
+                        specified string.
+                      properties:
+                        rewrites:
+                          items:
+                            description: |-
+                              Information about a rewrite transform. This transform matches a pattern and
+                              replaces it with the specified string.
+                            properties:
+                              regex:
+                                type: string
+                              replace:
+                                type: string
+                            type: object
+                          type: array
+                      type: object
+                    type:
+                      type: string
+                    urlRewriteConfig:
+                      description: |-
+                        Information about a URL rewrite transform. This transform matches a pattern
+                        in the request URL and replaces it with the specified string.
+                      properties:
+                        rewrites:
+                          items:
+                            description: |-
+                              Information about a rewrite transform. This transform matches a pattern and
+                              replaces it with the specified string.
+                            properties:
+                              regex:
+                                type: string
+                              replace:
+                                type: string
+                            type: object
+                          type: array
+                      type: object
                   type: object
                 type: array
             required:

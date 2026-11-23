@@ -1,0 +1,31 @@
+apiVersion: elbv2.services.k8s.aws/v1alpha1
+kind: Rule
+metadata:
+  name: $RULE_NAME
+spec:
+  priority: 310
+  listenerARN: $LISTENER_ARN
+  actions:
+    - forwardConfig:
+        targetGroups:
+          - targetGroupRef:
+              from:
+                name: $TARGET_GROUP_NAME
+            weight: 1
+      type: forward
+  conditions:
+  - field: path-pattern
+    pathPatternConfig:
+      values:
+      - /old/*
+  transforms:
+  - type: url-rewrite
+    urlRewriteConfig:
+      rewrites:
+      - regex: "^/old/(.*)$"
+        replace: "/new/$1"
+  - type: host-header-rewrite
+    hostHeaderRewriteConfig:
+      rewrites:
+      - regex: "^.*$"
+        replace: "example.com"

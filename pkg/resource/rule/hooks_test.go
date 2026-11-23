@@ -18,6 +18,7 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/stretchr/testify/assert"
 
 	svcapitypes "github.com/aws-controllers-k8s/elbv2-controller/apis/v1alpha1"
@@ -691,5 +692,106 @@ func TestCustomCompareConditions(t *testing.T) {
 				assert.Equal(t, 0, len(delta.Differences), "Expected no delta but got: %v", delta.Differences)
 			}
 		})
+	}
+}
+
+func urlRewrite(regex, replace string) *svcapitypes.RuleTransform {
+	return &svcapitypes.RuleTransform{
+		Type: aws.String("url-rewrite"),
+		URLRewriteConfig: &svcapitypes.URLRewriteConfig{
+			Rewrites: []*svcapitypes.RewriteConfig{{Regex: aws.String(regex), Replace: aws.String(replace)}},
+		},
+	}
+}
+
+func hostRewrite(regex, replace string) *svcapitypes.RuleTransform {
+	return &svcapitypes.RuleTransform{
+		Type: aws.String("host-header-rewrite"),
+		HostHeaderRewriteConfig: &svcapitypes.HostHeaderRewriteConfig{
+			Rewrites: []*svcapitypes.RewriteConfig{{Regex: aws.String(regex), Replace: aws.String(replace)}},
+		},
+	}
+}
+
+func ruleWithTransforms(t ...*svcapitypes.RuleTransform) *resource {
+	return &resource{ko: &svcapitypes.Rule{Spec: svcapitypes.RuleSpec{Transforms: t}}}
+}
+
+func TestCustomCompareTransforms(t *testing.T) {
+	tests := []struct {
+		name     string
+		desired  *resource
+		latest   *resource
+		wantDiff bool
+	}{
+		{"both empty", ruleWithTransforms(), ruleWithTransforms(), false},
+		{"nil vs empty", ruleWithTransforms(), &resource{ko: &svcapitypes.Rule{}}, false},
+		{"same", ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), false},
+		{
+			"reordered by AWS",
+			ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1"), hostRewrite("^.*$", "example.com")),
+			ruleWithTransforms(hostRewrite("^.*$", "example.com"), urlRewrite("^/old/(.*)$", "/new/$1")),
+			false,
+		},
+		{"regex changed", ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), ruleWithTransforms(urlRewrite("^/old2/(.*)$", "/new/$1")), true},
+		{"added", ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), ruleWithTransforms(), true},
+		{"removed", ruleWithTransforms(), ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), true},
+		{
+			"duplicate type",
+			ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1"), urlRewrite("^/old/(.*)$", "/new/$1")),
+			ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1"), hostRewrite("^.*$", "example.com")),
+			true,
+		},
+		{"type changed", ruleWithTransforms(hostRewrite("^/old/(.*)$", "/new/$1")), ruleWithTransforms(urlRewrite("^/old/(.*)$", "/new/$1")), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delta := ackcompare.NewDelta()
+			customCompareTransforms(delta, tt.desired, tt.latest)
+			assert.Equal(t, tt.wantDiff, delta.DifferentAt("Spec.Transforms"))
+		})
+	}
+}
+
+func TestSetResetTransforms(t *testing.T) {
+	removed := ackcompare.NewDelta()
+	removed.Add("Spec.Transforms", nil, []*svcapitypes.RuleTransform{urlRewrite("^/old/(.*)$", "/new/$1")})
+
+	tests := []struct {
+		name      string
+		delta     *ackcompare.Delta
+		desired   *resource
+		wantReset bool
+	}{
+		{"all transforms removed", removed, ruleWithTransforms(), true},
+		{"transform changed", removed, ruleWithTransforms(urlRewrite("^/a$", "/b")), false},
+		{"no transforms diff", ackcompare.NewDelta(), ruleWithTransforms(), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &svcsdk.ModifyRuleInput{}
+			setResetTransforms(tt.delta, tt.desired, input)
+			assert.Equal(t, tt.wantReset, aws.ToBool(input.ResetTransforms))
+			if tt.wantReset {
+				assert.Nil(t, input.Transforms)
+			}
+		})
+	}
+}
+
+func TestCustomCompareConditionsRegexValues(t *testing.T) {
+	cond := func(field string, regex ...string) *resource {
+		return &resource{ko: &svcapitypes.Rule{Spec: svcapitypes.RuleSpec{Conditions: []*svcapitypes.RuleCondition{
+			{Field: aws.String(field), RegexValues: aws.StringSlice(regex)},
+		}}}}
+	}
+	for _, field := range []string{"host-header", "path-pattern"} {
+		same := ackcompare.NewDelta()
+		customCompareConditions(same, cond(field, "^/old/.*$"), cond(field, "^/old/.*$"))
+		assert.False(t, same.DifferentAt("Spec.Conditions"), field)
+
+		changed := ackcompare.NewDelta()
+		customCompareConditions(changed, cond(field, "^/old/.*$"), cond(field, "^/new/.*$"))
+		assert.True(t, changed.DifferentAt("Spec.Conditions"), field)
 	}
 }

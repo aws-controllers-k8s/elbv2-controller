@@ -39,6 +39,9 @@ type RuleSpec struct {
 	Priority *int64 `json:"priority"`
 	// The tags to assign to the rule.
 	Tags []*Tag `json:"tags,omitempty"`
+	// The transforms to apply to requests that match this rule. You can add one
+	// host header rewrite transform and one URL rewrite transform.
+	Transforms []*RuleTransform `json:"transforms,omitempty"`
 }
 
 // RuleStatus defines the observed state of Rule

@@ -143,6 +143,12 @@ const (
 	RedirectActionStatusCodeEnum_HTTP_302 RedirectActionStatusCodeEnum = "HTTP_302"
 )
 
+type RemoveIPAMPoolEnum string
+
+const (
+	RemoveIPAMPoolEnum_ipv4 RemoveIPAMPoolEnum = "ipv4"
+)
+
 type RevocationType string
 
 const (
@@ -210,6 +216,13 @@ const (
 	TargetTypeEnum_instance TargetTypeEnum = "instance"
 	TargetTypeEnum_ip       TargetTypeEnum = "ip"
 	TargetTypeEnum_lambda   TargetTypeEnum = "lambda"
+)
+
+type TransformTypeEnum string
+
+const (
+	TransformTypeEnum_host_header_rewrite TransformTypeEnum = "host-header-rewrite"
+	TransformTypeEnum_url_rewrite         TransformTypeEnum = "url-rewrite"
 )
 
 type TrustStoreAssociationStatusEnum string

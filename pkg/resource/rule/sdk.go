@@ -259,6 +259,9 @@ func (rm *resourceManager) sdkFind(
 				}
 				if f1iter.HostHeaderConfig != nil {
 					f1elemf1 := &svcapitypes.HostHeaderConditionConfig{}
+					if f1iter.HostHeaderConfig.RegexValues != nil {
+						f1elemf1.RegexValues = aws.StringSlice(f1iter.HostHeaderConfig.RegexValues)
+					}
 					if f1iter.HostHeaderConfig.Values != nil {
 						f1elemf1.Values = aws.StringSlice(f1iter.HostHeaderConfig.Values)
 					}
@@ -268,6 +271,9 @@ func (rm *resourceManager) sdkFind(
 					f1elemf2 := &svcapitypes.HTTPHeaderConditionConfig{}
 					if f1iter.HttpHeaderConfig.HttpHeaderName != nil {
 						f1elemf2.HTTPHeaderName = f1iter.HttpHeaderConfig.HttpHeaderName
+					}
+					if f1iter.HttpHeaderConfig.RegexValues != nil {
+						f1elemf2.RegexValues = aws.StringSlice(f1iter.HttpHeaderConfig.RegexValues)
 					}
 					if f1iter.HttpHeaderConfig.Values != nil {
 						f1elemf2.Values = aws.StringSlice(f1iter.HttpHeaderConfig.Values)
@@ -283,6 +289,9 @@ func (rm *resourceManager) sdkFind(
 				}
 				if f1iter.PathPatternConfig != nil {
 					f1elemf4 := &svcapitypes.PathPatternConditionConfig{}
+					if f1iter.PathPatternConfig.RegexValues != nil {
+						f1elemf4.RegexValues = aws.StringSlice(f1iter.PathPatternConfig.RegexValues)
+					}
 					if f1iter.PathPatternConfig.Values != nil {
 						f1elemf4.Values = aws.StringSlice(f1iter.PathPatternConfig.Values)
 					}
@@ -306,12 +315,15 @@ func (rm *resourceManager) sdkFind(
 					}
 					f1elem.QueryStringConfig = f1elemf5
 				}
+				if f1iter.RegexValues != nil {
+					f1elem.RegexValues = aws.StringSlice(f1iter.RegexValues)
+				}
 				if f1iter.SourceIpConfig != nil {
-					f1elemf6 := &svcapitypes.SourceIPConditionConfig{}
+					f1elemf7 := &svcapitypes.SourceIPConditionConfig{}
 					if f1iter.SourceIpConfig.Values != nil {
-						f1elemf6.Values = aws.StringSlice(f1iter.SourceIpConfig.Values)
+						f1elemf7.Values = aws.StringSlice(f1iter.SourceIpConfig.Values)
 					}
-					f1elem.SourceIPConfig = f1elemf6
+					f1elem.SourceIPConfig = f1elemf7
 				}
 				if f1iter.Values != nil {
 					f1elem.Values = aws.StringSlice(f1iter.Values)
@@ -333,6 +345,55 @@ func (rm *resourceManager) sdkFind(
 			}
 			tmpARN := ackv1alpha1.AWSResourceName(*elem.RuleArn)
 			ko.Status.ACKResourceMetadata.ARN = &tmpARN
+		}
+		if elem.Transforms != nil {
+			f5 := []*svcapitypes.RuleTransform{}
+			for _, f5iter := range elem.Transforms {
+				f5elem := &svcapitypes.RuleTransform{}
+				if f5iter.HostHeaderRewriteConfig != nil {
+					f5elemf0 := &svcapitypes.HostHeaderRewriteConfig{}
+					if f5iter.HostHeaderRewriteConfig.Rewrites != nil {
+						f5elemf0f0 := []*svcapitypes.RewriteConfig{}
+						for _, f5elemf0f0iter := range f5iter.HostHeaderRewriteConfig.Rewrites {
+							f5elemf0f0elem := &svcapitypes.RewriteConfig{}
+							if f5elemf0f0iter.Regex != nil {
+								f5elemf0f0elem.Regex = f5elemf0f0iter.Regex
+							}
+							if f5elemf0f0iter.Replace != nil {
+								f5elemf0f0elem.Replace = f5elemf0f0iter.Replace
+							}
+							f5elemf0f0 = append(f5elemf0f0, f5elemf0f0elem)
+						}
+						f5elemf0.Rewrites = f5elemf0f0
+					}
+					f5elem.HostHeaderRewriteConfig = f5elemf0
+				}
+				if f5iter.Type != "" {
+					f5elem.Type = aws.String(string(f5iter.Type))
+				}
+				if f5iter.UrlRewriteConfig != nil {
+					f5elemf2 := &svcapitypes.URLRewriteConfig{}
+					if f5iter.UrlRewriteConfig.Rewrites != nil {
+						f5elemf2f0 := []*svcapitypes.RewriteConfig{}
+						for _, f5elemf2f0iter := range f5iter.UrlRewriteConfig.Rewrites {
+							f5elemf2f0elem := &svcapitypes.RewriteConfig{}
+							if f5elemf2f0iter.Regex != nil {
+								f5elemf2f0elem.Regex = f5elemf2f0iter.Regex
+							}
+							if f5elemf2f0iter.Replace != nil {
+								f5elemf2f0elem.Replace = f5elemf2f0iter.Replace
+							}
+							f5elemf2f0 = append(f5elemf2f0, f5elemf2f0elem)
+						}
+						f5elemf2.Rewrites = f5elemf2f0
+					}
+					f5elem.URLRewriteConfig = f5elemf2
+				}
+				f5 = append(f5, f5elem)
+			}
+			ko.Spec.Transforms = f5
+		} else {
+			ko.Spec.Transforms = nil
 		}
 		found = true
 		break
@@ -769,6 +830,9 @@ func (rm *resourceManager) newCreateRequestPayload(
 			}
 			if f1iter.HostHeaderConfig != nil {
 				f1elemf1 := &svcsdktypes.HostHeaderConditionConfig{}
+				if f1iter.HostHeaderConfig.RegexValues != nil {
+					f1elemf1.RegexValues = aws.ToStringSlice(f1iter.HostHeaderConfig.RegexValues)
+				}
 				if f1iter.HostHeaderConfig.Values != nil {
 					f1elemf1.Values = aws.ToStringSlice(f1iter.HostHeaderConfig.Values)
 				}
@@ -778,6 +842,9 @@ func (rm *resourceManager) newCreateRequestPayload(
 				f1elemf2 := &svcsdktypes.HttpHeaderConditionConfig{}
 				if f1iter.HTTPHeaderConfig.HTTPHeaderName != nil {
 					f1elemf2.HttpHeaderName = f1iter.HTTPHeaderConfig.HTTPHeaderName
+				}
+				if f1iter.HTTPHeaderConfig.RegexValues != nil {
+					f1elemf2.RegexValues = aws.ToStringSlice(f1iter.HTTPHeaderConfig.RegexValues)
 				}
 				if f1iter.HTTPHeaderConfig.Values != nil {
 					f1elemf2.Values = aws.ToStringSlice(f1iter.HTTPHeaderConfig.Values)
@@ -793,6 +860,9 @@ func (rm *resourceManager) newCreateRequestPayload(
 			}
 			if f1iter.PathPatternConfig != nil {
 				f1elemf4 := &svcsdktypes.PathPatternConditionConfig{}
+				if f1iter.PathPatternConfig.RegexValues != nil {
+					f1elemf4.RegexValues = aws.ToStringSlice(f1iter.PathPatternConfig.RegexValues)
+				}
 				if f1iter.PathPatternConfig.Values != nil {
 					f1elemf4.Values = aws.ToStringSlice(f1iter.PathPatternConfig.Values)
 				}
@@ -816,12 +886,15 @@ func (rm *resourceManager) newCreateRequestPayload(
 				}
 				f1elem.QueryStringConfig = f1elemf5
 			}
+			if f1iter.RegexValues != nil {
+				f1elem.RegexValues = aws.ToStringSlice(f1iter.RegexValues)
+			}
 			if f1iter.SourceIPConfig != nil {
-				f1elemf6 := &svcsdktypes.SourceIpConditionConfig{}
+				f1elemf7 := &svcsdktypes.SourceIpConditionConfig{}
 				if f1iter.SourceIPConfig.Values != nil {
-					f1elemf6.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
+					f1elemf7.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
 				}
-				f1elem.SourceIpConfig = f1elemf6
+				f1elem.SourceIpConfig = f1elemf7
 			}
 			if f1iter.Values != nil {
 				f1elem.Values = aws.ToStringSlice(f1iter.Values)
@@ -855,6 +928,53 @@ func (rm *resourceManager) newCreateRequestPayload(
 		}
 		res.Tags = f4
 	}
+	if r.ko.Spec.Transforms != nil {
+		f5 := []svcsdktypes.RuleTransform{}
+		for _, f5iter := range r.ko.Spec.Transforms {
+			f5elem := &svcsdktypes.RuleTransform{}
+			if f5iter.HostHeaderRewriteConfig != nil {
+				f5elemf0 := &svcsdktypes.HostHeaderRewriteConfig{}
+				if f5iter.HostHeaderRewriteConfig.Rewrites != nil {
+					f5elemf0f0 := []svcsdktypes.RewriteConfig{}
+					for _, f5elemf0f0iter := range f5iter.HostHeaderRewriteConfig.Rewrites {
+						f5elemf0f0elem := &svcsdktypes.RewriteConfig{}
+						if f5elemf0f0iter.Regex != nil {
+							f5elemf0f0elem.Regex = f5elemf0f0iter.Regex
+						}
+						if f5elemf0f0iter.Replace != nil {
+							f5elemf0f0elem.Replace = f5elemf0f0iter.Replace
+						}
+						f5elemf0f0 = append(f5elemf0f0, *f5elemf0f0elem)
+					}
+					f5elemf0.Rewrites = f5elemf0f0
+				}
+				f5elem.HostHeaderRewriteConfig = f5elemf0
+			}
+			if f5iter.Type != nil {
+				f5elem.Type = svcsdktypes.TransformTypeEnum(*f5iter.Type)
+			}
+			if f5iter.URLRewriteConfig != nil {
+				f5elemf2 := &svcsdktypes.UrlRewriteConfig{}
+				if f5iter.URLRewriteConfig.Rewrites != nil {
+					f5elemf2f0 := []svcsdktypes.RewriteConfig{}
+					for _, f5elemf2f0iter := range f5iter.URLRewriteConfig.Rewrites {
+						f5elemf2f0elem := &svcsdktypes.RewriteConfig{}
+						if f5elemf2f0iter.Regex != nil {
+							f5elemf2f0elem.Regex = f5elemf2f0iter.Regex
+						}
+						if f5elemf2f0iter.Replace != nil {
+							f5elemf2f0elem.Replace = f5elemf2f0iter.Replace
+						}
+						f5elemf2f0 = append(f5elemf2f0, *f5elemf2f0elem)
+					}
+					f5elemf2.Rewrites = f5elemf2f0
+				}
+				f5elem.UrlRewriteConfig = f5elemf2
+			}
+			f5 = append(f5, *f5elem)
+		}
+		res.Transforms = f5
+	}
 
 	return res, nil
 }
@@ -884,6 +1004,7 @@ func (rm *resourceManager) sdkUpdate(
 	if err != nil {
 		return nil, err
 	}
+	setResetTransforms(delta, desired, input)
 
 	var resp *svcsdk.ModifyRuleOutput
 	_ = resp
@@ -1255,6 +1376,9 @@ func (rm *resourceManager) newUpdateRequestPayload(
 			}
 			if f1iter.HostHeaderConfig != nil {
 				f1elemf1 := &svcsdktypes.HostHeaderConditionConfig{}
+				if f1iter.HostHeaderConfig.RegexValues != nil {
+					f1elemf1.RegexValues = aws.ToStringSlice(f1iter.HostHeaderConfig.RegexValues)
+				}
 				if f1iter.HostHeaderConfig.Values != nil {
 					f1elemf1.Values = aws.ToStringSlice(f1iter.HostHeaderConfig.Values)
 				}
@@ -1264,6 +1388,9 @@ func (rm *resourceManager) newUpdateRequestPayload(
 				f1elemf2 := &svcsdktypes.HttpHeaderConditionConfig{}
 				if f1iter.HTTPHeaderConfig.HTTPHeaderName != nil {
 					f1elemf2.HttpHeaderName = f1iter.HTTPHeaderConfig.HTTPHeaderName
+				}
+				if f1iter.HTTPHeaderConfig.RegexValues != nil {
+					f1elemf2.RegexValues = aws.ToStringSlice(f1iter.HTTPHeaderConfig.RegexValues)
 				}
 				if f1iter.HTTPHeaderConfig.Values != nil {
 					f1elemf2.Values = aws.ToStringSlice(f1iter.HTTPHeaderConfig.Values)
@@ -1279,6 +1406,9 @@ func (rm *resourceManager) newUpdateRequestPayload(
 			}
 			if f1iter.PathPatternConfig != nil {
 				f1elemf4 := &svcsdktypes.PathPatternConditionConfig{}
+				if f1iter.PathPatternConfig.RegexValues != nil {
+					f1elemf4.RegexValues = aws.ToStringSlice(f1iter.PathPatternConfig.RegexValues)
+				}
 				if f1iter.PathPatternConfig.Values != nil {
 					f1elemf4.Values = aws.ToStringSlice(f1iter.PathPatternConfig.Values)
 				}
@@ -1302,12 +1432,15 @@ func (rm *resourceManager) newUpdateRequestPayload(
 				}
 				f1elem.QueryStringConfig = f1elemf5
 			}
+			if f1iter.RegexValues != nil {
+				f1elem.RegexValues = aws.ToStringSlice(f1iter.RegexValues)
+			}
 			if f1iter.SourceIPConfig != nil {
-				f1elemf6 := &svcsdktypes.SourceIpConditionConfig{}
+				f1elemf7 := &svcsdktypes.SourceIpConditionConfig{}
 				if f1iter.SourceIPConfig.Values != nil {
-					f1elemf6.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
+					f1elemf7.Values = aws.ToStringSlice(f1iter.SourceIPConfig.Values)
 				}
-				f1elem.SourceIpConfig = f1elemf6
+				f1elem.SourceIpConfig = f1elemf7
 			}
 			if f1iter.Values != nil {
 				f1elem.Values = aws.ToStringSlice(f1iter.Values)
@@ -1318,6 +1451,53 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
 		res.RuleArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
+	}
+	if r.ko.Spec.Transforms != nil {
+		f4 := []svcsdktypes.RuleTransform{}
+		for _, f4iter := range r.ko.Spec.Transforms {
+			f4elem := &svcsdktypes.RuleTransform{}
+			if f4iter.HostHeaderRewriteConfig != nil {
+				f4elemf0 := &svcsdktypes.HostHeaderRewriteConfig{}
+				if f4iter.HostHeaderRewriteConfig.Rewrites != nil {
+					f4elemf0f0 := []svcsdktypes.RewriteConfig{}
+					for _, f4elemf0f0iter := range f4iter.HostHeaderRewriteConfig.Rewrites {
+						f4elemf0f0elem := &svcsdktypes.RewriteConfig{}
+						if f4elemf0f0iter.Regex != nil {
+							f4elemf0f0elem.Regex = f4elemf0f0iter.Regex
+						}
+						if f4elemf0f0iter.Replace != nil {
+							f4elemf0f0elem.Replace = f4elemf0f0iter.Replace
+						}
+						f4elemf0f0 = append(f4elemf0f0, *f4elemf0f0elem)
+					}
+					f4elemf0.Rewrites = f4elemf0f0
+				}
+				f4elem.HostHeaderRewriteConfig = f4elemf0
+			}
+			if f4iter.Type != nil {
+				f4elem.Type = svcsdktypes.TransformTypeEnum(*f4iter.Type)
+			}
+			if f4iter.URLRewriteConfig != nil {
+				f4elemf2 := &svcsdktypes.UrlRewriteConfig{}
+				if f4iter.URLRewriteConfig.Rewrites != nil {
+					f4elemf2f0 := []svcsdktypes.RewriteConfig{}
+					for _, f4elemf2f0iter := range f4iter.URLRewriteConfig.Rewrites {
+						f4elemf2f0elem := &svcsdktypes.RewriteConfig{}
+						if f4elemf2f0iter.Regex != nil {
+							f4elemf2f0elem.Regex = f4elemf2f0iter.Regex
+						}
+						if f4elemf2f0iter.Replace != nil {
+							f4elemf2f0elem.Replace = f4elemf2f0iter.Replace
+						}
+						f4elemf2f0 = append(f4elemf2f0, *f4elemf2f0elem)
+					}
+					f4elemf2.Rewrites = f4elemf2f0
+				}
+				f4elem.UrlRewriteConfig = f4elemf2
+			}
+			f4 = append(f4, *f4elem)
+		}
+		res.Transforms = f4
 	}
 
 	return res, nil

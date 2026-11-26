@@ -13,6 +13,9 @@ ignore:
   #- LoadBalancer.EnablePrefixForIpv6SourceNat
   #- CreateLoadBalancerInput.EnablePrefixForIpv6SourceNat
   - SubnetMapping.SourceNatIpv6Prefix
+  # New in the v1.51.0 model; not supported by this controller yet.
+  - CreateLoadBalancerInput.IpamPools
+  - LoadBalancer.IpamPools
 sdk_names:
   model_name: elastic-load-balancing-v2
   package_name: elasticloadbalancingv2
@@ -250,6 +253,16 @@ resources:
             ignore: from
           - method: Update
             ignore: from
+      Transforms:
+        compare:
+          is_ignored: true
+        set:
+          - method: Create
+            ignore: from
+          - method: Update
+            ignore: from
+      Transforms.Type:
+        go_tag: json:"type,omitempty"
     exceptions:
       errors:
         404:
@@ -270,3 +283,5 @@ resources:
         template_path: hooks/rule/sdk_read_many_post_set_output.go.tpl
       sdk_update_pre_build_request:
         template_path: hooks/rule/sdk_update_pre_build_request.go.tpl
+      sdk_update_post_build_request:
+        template_path: hooks/rule/sdk_update_post_build_request.go.tpl

@@ -144,6 +144,7 @@ type ForwardActionConfig struct {
 // HTTP header fields.
 type HTTPHeaderConditionConfig struct {
 	HTTPHeaderName *string   `json:"httpHeaderName,omitempty"`
+	RegexValues    []*string `json:"regexValues,omitempty"`
 	Values         []*string `json:"values,omitempty"`
 }
 
@@ -158,7 +159,15 @@ type HTTPRequestMethodConditionConfig struct {
 
 // Information about a host header condition.
 type HostHeaderConditionConfig struct {
-	Values []*string `json:"values,omitempty"`
+	RegexValues []*string `json:"regexValues,omitempty"`
+	Values      []*string `json:"values,omitempty"`
+}
+
+// Information about a host header rewrite transform. This transform matches
+// a pattern in the host header in an HTTP request and replaces it with the
+// specified string.
+type HostHeaderRewriteConfig struct {
+	Rewrites []*RewriteConfig `json:"rewrites,omitempty"`
 }
 
 // Information about a listener.
@@ -232,7 +241,8 @@ type MutualAuthenticationAttributes struct {
 
 // Information about a path pattern condition.
 type PathPatternConditionConfig struct {
-	Values []*string `json:"values,omitempty"`
+	RegexValues []*string `json:"regexValues,omitempty"`
+	Values      []*string `json:"values,omitempty"`
 }
 
 // Information about a query string condition.
@@ -281,6 +291,13 @@ type RedirectActionConfig struct {
 	StatusCode *string `json:"statusCode,omitempty"`
 }
 
+// Information about a rewrite transform. This transform matches a pattern and
+// replaces it with the specified string.
+type RewriteConfig struct {
+	Regex   *string `json:"regex,omitempty"`
+	Replace *string `json:"replace,omitempty"`
+}
+
 // Information about a condition for a rule.
 //
 // Each rule can optionally include up to one of each of the following conditions:
@@ -314,6 +331,7 @@ type RuleCondition struct {
 	// query string contains key/value pairs separated by '&' characters. The allowed
 	// characters are specified by RFC 3986. Any character can be percentage encoded.
 	QueryStringConfig *QueryStringConditionConfig `json:"queryStringConfig,omitempty"`
+	RegexValues       []*string                   `json:"regexValues,omitempty"`
 	// Information about a source IP condition.
 	//
 	// You can use this condition to route based on the IP address of the source
@@ -329,6 +347,19 @@ type RulePriorityPair struct {
 	RuleARN  *string `json:"ruleARN,omitempty"`
 }
 
+// Information about a transform to apply to requests that match a rule. Transforms
+// are applied to requests before they are sent to targets.
+type RuleTransform struct {
+	// Information about a host header rewrite transform. This transform matches
+	// a pattern in the host header in an HTTP request and replaces it with the
+	// specified string.
+	HostHeaderRewriteConfig *HostHeaderRewriteConfig `json:"hostHeaderRewriteConfig,omitempty"`
+	Type                    *string                  `json:"type,omitempty"`
+	// Information about a URL rewrite transform. This transform matches a pattern
+	// in the request URL and replaces it with the specified string.
+	URLRewriteConfig *URLRewriteConfig `json:"urlRewriteConfig,omitempty"`
+}
+
 // Information about a rule.
 type Rule_SDK struct {
 	Actions    []*Action        `json:"actions,omitempty"`
@@ -336,6 +367,7 @@ type Rule_SDK struct {
 	IsDefault  *bool            `json:"isDefault,omitempty"`
 	Priority   *string          `json:"priority,omitempty"`
 	RuleARN    *string          `json:"ruleARN,omitempty"`
+	Transforms []*RuleTransform `json:"transforms,omitempty"`
 }
 
 // Information about a policy used for SSL negotiation.
@@ -444,7 +476,13 @@ type TrustStoreRevocation struct {
 	TrustStoreARN *string `json:"trustStoreARN,omitempty"`
 }
 
-// The capacity reservation status for each availability zone.
+// Information about a URL rewrite transform. This transform matches a pattern
+// in the request URL and replaces it with the specified string.
+type URLRewriteConfig struct {
+	Rewrites []*RewriteConfig `json:"rewrites,omitempty"`
+}
+
+// The capacity reservation status for each Availability Zone.
 type ZonalCapacityReservationState struct {
 	AvailabilityZone *string `json:"availabilityZone,omitempty"`
 }
